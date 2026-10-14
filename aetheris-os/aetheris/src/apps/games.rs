@@ -575,3 +575,215 @@ impl App for Life {
         }
     }
 }
+
+// ───────────────────────────── Ninja Run (Chrome-dino style) ─────────────────────────────
+const GROUND_Y: i32 = 54;
+const NINJA_X: i32 = 18;
+const NINJA_W: i32 = 10;
+const NINJA_H: i32 = 14;
+
+pub struct Ninja {
+    y: i32,
+    vy: i32,
+    on_ground: bool,
+    /// Obstacle scroll positions and heights (px above ground).
+    obs: [(i32, i32); 3],
+    dist: u32,
+    best: u32,
+    alive: bool,
+    started: bool,
+    next: u64,
+    ground_off: i32,
+    clouds: [(i32, i32); 3],
+}
+
+impl Ninja {
+    pub fn new() -> Self {
+        let mut n = Self {
+            y: GROUND_Y - NINJA_H,
+            vy: 0,
+            on_ground: true,
+            obs: [(90, 12), (150, 18), (220, 10)],
+            dist: 0,
+            best: 0,
+            alive: true,
+            started: false,
+            next: 0,
+            ground_off: 0,
+            clouds: [(20, 10), (70, 16), (110, 8)],
+        };
+        n.reset();
+        n
+    }
+    fn reset(&mut self) {
+        self.y = GROUND_Y - NINJA_H;
+        self.vy = 0;
+        self.on_ground = true;
+        self.obs = [(100, 12), (170, 16), (240, 10)];
+        self.dist = 0;
+        self.alive = true;
+        self.started = false;
+        self.ground_off = 0;
+        self.clouds = [(20, 10), (70, 16), (110, 8)];
+    }
+    fn jump(&mut self) {
+        if self.on_ground && self.alive {
+            self.vy = -9;
+            self.on_ground = false;
+        }
+    }
+    fn speed(&self) -> i32 {
+        3 + (self.dist / 400).min(5) as i32
+    }
+    fn hit(&self) -> bool {
+        let nx0 = NINJA_X + 2;
+        let nx1 = NINJA_X + NINJA_W - 2;
+        let ny0 = self.y + 2;
+        let ny1 = self.y + NINJA_H;
+        for &(ox, oh) in &self.obs {
+            let ox0 = ox;
+            let ox1 = ox + 8;
+            let oy0 = GROUND_Y - oh;
+            let oy1 = GROUND_Y;
+            if nx0 < ox1 && nx1 > ox0 && ny0 < oy1 && ny1 > oy0 {
+                return true;
+            }
+        }
+        false
+    }
+    fn draw_ninja(fb: &mut Fb, x: i32, y: i32, run_frame: bool) {
+        // head
+        fb.disc(x + 5, y + 3, 3, true);
+        // bandana trail
+        fb.hline(x - 1, y + 2, 3, true);
+        // body
+        fb.fill_rect(x + 3, y + 6, 5, 5, true);
+        // legs (run cycle)
+        if run_frame {
+            fb.vline(x + 3, y + 11, 3, true);
+            fb.line(x + 7, y + 11, x + 10, y + 14, true);
+        } else {
+            fb.line(x + 3, y + 11, x, y + 14, true);
+            fb.vline(x + 7, y + 11, 3, true);
+        }
+        // arm
+        fb.line(x + 3, y + 7, x - 1, y + 10, true);
+    }
+    fn draw_cactus(fb: &mut Fb, x: i32, h: i32) {
+        let top = GROUND_Y - h;
+        fb.fill_rect(x + 2, top, 4, h, true);
+        if h > 12 {
+            fb.fill_rect(x - 2, top + 4, 4, 3, true);
+            fb.vline(x - 2, top + 4, 5, true);
+            fb.fill_rect(x + 6, top + 6, 4, 3, true);
+            fb.vline(x + 9, top + 6, 5, true);
+        }
+    }
+}
+
+impl App for Ninja {
+    fn key(&mut self, ev: KeyEvent, sys: &mut Sys) -> Flow {
+        if !ev.down() {
+            return Flow::Stay;
+        }
+        if matches!(ev.key, Key::Star | Key::D) && ev.press() {
+            return Flow::Exit;
+        }
+        let jump = matches!(ev.key, Key::Hash | Key::K5 | Key::K2 | Key::A)
+            || ev.key.nav() == Some(Nav::Up)
+            || (ev.key.nav() == Some(Nav::Ok) && ev.press());
+        if jump {
+            if !self.alive {
+                self.reset();
+                self.started = true;
+                sys.snd(Snd::Select);
+            } else {
+                if !self.started {
+                    self.started = true;
+                }
+                self.jump();
+                sys.snd(Snd::Ping);
+            }
+        }
+        Flow::Stay
+    }
+    fn tick(&mut self, sys: &mut Sys) {
+        if !self.alive || !self.started || sys.now < self.next {
+            return;
+        }
+        self.next = sys.now + 35;
+        let sp = self.speed();
+        self.ground_off = (self.ground_off + sp) % 12;
+        self.dist += sp as u32;
+        // gravity
+        self.vy += 1;
+        self.y += self.vy;
+        if self.y >= GROUND_Y - NINJA_H {
+            self.y = GROUND_Y - NINJA_H;
+            self.vy = 0;
+            self.on_ground = true;
+        }
+        // scroll obstacles
+        for i in 0..self.obs.len() {
+            self.obs[i].0 -= sp;
+            if self.obs[i].0 < -12 {
+                let farthest = self.obs.iter().map(|o| o.0).max().unwrap_or(128);
+                let gap = 70 + sys.rand_n(50) as i32;
+                let h = 10 + sys.rand_n(12) as i32;
+                self.obs[i] = (farthest + gap, h);
+            }
+        }
+        // clouds
+        for c in self.clouds.iter_mut() {
+            c.0 -= 1;
+            if c.0 < -20 {
+                c.0 = 130 + sys.rand_n(40) as i32;
+                c.1 = 6 + sys.rand_n(16) as i32;
+            }
+        }
+        if self.hit() {
+            self.alive = false;
+            self.best = self.best.max(self.dist / 10);
+            sys.snd(Snd::Lose);
+        }
+    }
+    fn keep_awake(&self) -> bool {
+        true
+    }
+    fn draw(&self, a: &mut Fb, b: &mut Fb, _sys: &Sys) {
+        gfx::title(a, "NINJA RUN");
+        let score = self.dist / 10;
+        gfx::text_r(a, 125, 3, &format!("{}", score), F::B9x15, true);
+
+        // sky / clouds on playfield
+        for &(cx, cy) in &self.clouds {
+            a.fill_rect(cx, cy, 14, 3, true);
+            a.fill_rect(cx + 4, cy - 2, 8, 3, true);
+        }
+        // ground
+        a.hline(0, GROUND_Y, 128, true);
+        a.hline(0, GROUND_Y + 1, 128, true);
+        for x in (-self.ground_off..128).step_by(12) {
+            a.vline(x, GROUND_Y + 2, 3, true);
+        }
+        // obstacles
+        for &(ox, oh) in &self.obs {
+            Self::draw_cactus(a, ox, oh);
+        }
+        // runner
+        let frame = (self.dist / 8) % 2 == 0 && self.on_ground;
+        Self::draw_ninja(a, NINJA_X, self.y, frame);
+
+        if !self.started {
+            gfx::text_inv(a, 28, 28, "press JUMP", F::M6x10);
+        }
+        if !self.alive {
+            gfx::text_inv(a, 16, 28, "FALLEN # again", F::M6x10);
+        }
+
+        aux_panel(b, "NINJA", &[]);
+        gfx::text_c(b, 64, 18, &format!("{}", score), F::H10x20, true);
+        gfx::text_c(b, 64, 40, &format!("best {}", self.best), F::M6x10, true);
+        gfx::text_c(b, 64, 54, "#/5/2 jump  *:exit", F::S5x8, true);
+    }
+}

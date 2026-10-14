@@ -270,6 +270,34 @@ pub fn draw(fb: &mut Fb, icon: u8, x: i32, y: i32) {
             l!(3, 16, 7, 12);
             l!(3, 16, 7, 20);
         }
+        31 => {
+            // playlist / queue bars
+            for i in 0..4 {
+                let y0 = 4 + i * 5;
+                fb.fill_rect(x + 4, y + y0, 12, 3, true);
+                fb.disc(x + 19, y + y0 + 1, 2, true);
+            }
+        }
+        32 => {
+            // proximity radar rings + alert
+            fb.circle(x + 12, y + 14, 9, true);
+            fb.circle(x + 12, y + 14, 5, true);
+            fb.disc(x + 12, y + 14, 2, true);
+            fb.fill_rect(x + 11, y + 2, 2, 5, true);
+            fb.fill_rect(x + 11, y + 8, 2, 2, true);
+        }
+        33 => {
+            // ninja runner silhouette
+            fb.disc(x + 10, y + 6, 3, true);
+            fb.fill_rect(x + 7, y + 10, 7, 6, true);
+            l!(7, 16, 4, 21);
+            l!(13, 16, 17, 21);
+            l!(7, 12, 2, 15);
+            fb.hline(x + 4, y + 5, 4, true);
+            // cactus
+            fb.fill_rect(x + 18, y + 10, 3, 12, true);
+            fb.fill_rect(x + 16, y + 13, 2, 2, true);
+        }
         _ => {
             fb.rect(x + 2, y + 2, 20, 20, true);
             gfx::text_c(fb, x + 12, y + 8, "?", F::M6x10, true);

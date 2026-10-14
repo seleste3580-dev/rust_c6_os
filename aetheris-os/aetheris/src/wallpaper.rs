@@ -3,7 +3,10 @@ use crate::fb::Fb;
 use crate::gfx::{self, F};
 use crate::trig::*;
 
-pub const NAMES: [&str; 9] = ["Matrix Rain", "Starfield", "Waves", "Retro Grid", "Bubbles", "Seleste", "Circuit", "Radar", "Plain"];
+pub const NAMES: [&str; 13] = [
+    "Matrix Rain", "Starfield", "Waves", "Retro Grid", "Bubbles", "Seleste", "Circuit", "Radar", "Plain",
+    "Snowfall", "Skyline", "Ripple", "Checker",
+];
 pub const COUNT: u8 = NAMES.len() as u8;
 
 const GLYPHS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$+-*/=%#&<>[]{}|?!:;~^";
@@ -137,6 +140,21 @@ impl Wall {
                     self.stars[i] = if nx < 0 { self.new_star(false) } else { (nx, y, s) };
                 }
             }
+            9 => {
+                // snowfall: reuse star slots as flakes drifting down
+                for i in 0..self.stars.len() {
+                    let (x, y, s) = self.stars[i];
+                    let drift = if (self.t.wrapping_add(i as u32 * 7)) & 3 == 0 { 1 } else { 0 };
+                    let nx = x + drift - 1;
+                    let ny = y + s as i16;
+                    self.stars[i] = if ny > 64 || nx < -2 || nx > 130 {
+                        let a = self.rnd();
+                        ((a % 128) as i16, -(((a >> 8) % 8) as i16), 1 + ((a >> 16) % 3) as u8)
+                    } else {
+                        (nx, ny, s)
+                    };
+                }
+            }
             _ => {}
         }
     }
@@ -220,6 +238,53 @@ impl Wall {
                 for k in 1..6 {
                     let b = a - k * 3;
                     fb.set(64 + cos64(b - 16) * (30 - k) / 127, 32 + sin64(b - 16) * (30 - k) / 127, true);
+                }
+            }
+            9 => {
+                for &(x, y, s) in self.stars.iter() {
+                    fb.set(x as i32, y as i32, true);
+                    if s >= 2 {
+                        fb.set(x as i32 + 1, y as i32 + 1, true);
+                    }
+                }
+            }
+            10 => {
+                // night skyline + blinking windows
+                fb.hline(0, 52, 128, true);
+                let buildings: [(i32, i32, i32); 7] = [(0, 28, 18), (18, 18, 16), (34, 34, 14), (48, 12, 22), (70, 24, 20), (90, 30, 16), (106, 16, 22)];
+                for (i, &(x, h, w)) in buildings.iter().enumerate() {
+                    fb.fill_rect(x, 52 - h, w, h, true);
+                    for wy in 0..(h / 6) {
+                        for wx in 0..(w / 5) {
+                            let on = ((t / 8 + i as i32 * 3 + wy * 5 + wx * 7) & 7) > 2;
+                            if on {
+                                fb.fill_rect(x + 2 + wx * 5, 52 - h + 3 + wy * 6, 2, 2, false);
+                            }
+                        }
+                    }
+                }
+                // moon
+                fb.disc(110, 12, 6, true);
+                fb.disc(113, 10, 5, false);
+            }
+            11 => {
+                let phase = (t * 2) % 40;
+                for k in 0..5 {
+                    let r = phase + k * 8;
+                    if r < 48 {
+                        fb.circle(64, 32, r, true);
+                    }
+                }
+                fb.disc(64, 32, 2, true);
+            }
+            12 => {
+                let off = (t / 2) % 16;
+                for y in 0..8 {
+                    for x in 0..16 {
+                        if ((x + y + off as i32 / 2) & 1) == 0 {
+                            fb.fill_rect(x * 8, y * 8, 8, 8, true);
+                        }
+                    }
                 }
             }
             _ => {}

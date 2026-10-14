@@ -3,7 +3,7 @@
 # ✦ AETHERIS OS ✦
 
 ### A phone-style operating environment for the **ESP32-C6**, written in **Rust**
-**Dual-OLED shell · multi-tap keypad login · 30 apps · piano with chords · Wi-Fi · OTA updates**
+**Dual-OLED shell · multi-tap keypad login · 33 apps · piano with chords · Wi-Fi · OTA updates**
 
 *Powered by **Seleste Technologies***
 
@@ -22,7 +22,7 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│  APPS            30 apps · Piano · Settings · Wi-Fi · Games · IR lab · OTA   │
+│  APPS            33 apps · Piano · Settings · Wi-Fi · Games · IR lab · OTA   │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  SHELL (os.rs)   Boot · Login · Home · App grid · Lock · Sleep · Wallpapers  │
 ├──────────────────────────────────────────────────────────────────────────────┤
@@ -299,6 +299,9 @@ stateDiagram-v2
 | 28 | **Focus** | Pomodoro timer: work / short break / long break every 4th, chime + LED, focus stats | `#` start/pause · `4/6` work ±5 min · `2/8` break ±1 min · `B` skip · `A` restart · `C` reset |
 | 29 | **Calendar** | month grid (Mon-first) on OLED B, weekday · day of year · ISO week · days from today | `4/6` day · `2/8` week · `A/B` month · `1/3` year · `C` today |
 | 30 | **Converter** | length, mass, temperature, volume, speed, area, data, energy; all units listed on OLED B | digits · `*` point · hold `*` ± · `A` type · `B` from · `C` to · `#` delete (hold = clear) · `D` exit |
+| 31 | **Playlist** | queue Music Box tracks (up to 16), play in order, saved across reboot | `A` library/playlist · `#` add or play · `B` add/remove · `C` clear · arrows browse |
+| 32 | **Prox Alarm** | IR tripwire: arm, wave/block beam → looping siren + LED | `#` arm/disarm (or silence) · `A` edge/while-near · `B` clear trip count |
+| 33 | **Ninja Run** | Chrome-dino style runner: jump cactus obstacles, speed ramps up | `#` / `5` / `2` / up jump · `#` again after fall |
 
 ### 🎹 Piano
 
@@ -385,7 +388,7 @@ mindmap
     About
 ```
 
-**Wallpapers:** Matrix Rain · Starfield · Waves · Retro Grid · Bubbles · Seleste · Circuit · Radar · Plain — chosen **independently for each OLED** with a live preview on the second screen.
+**Wallpapers:** Matrix Rain · Starfield · Waves · Retro Grid · Bubbles · Seleste · Circuit · Radar · Plain · Snowfall · Skyline · Ripple · Checker — chosen **independently for each OLED** with a live preview on the second screen.
 
 ---
 

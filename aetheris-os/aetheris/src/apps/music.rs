@@ -601,3 +601,210 @@ impl App for Morse {
         let _ = Mode::Lower;
     }
 }
+
+// ───────────────────────────── Playlist builder ─────────────────────────────
+const PL_MAX: usize = 16;
+
+pub struct Playlist {
+    /// Cursor in the library (all TUNES).
+    lib: usize,
+    /// Cursor in the saved playlist.
+    pl_i: usize,
+    /// false = browse library · true = edit playlist.
+    show_pl: bool,
+    /// Playing: (start_ms, playlist_index).
+    playing: Option<(u64, usize)>,
+    total: u64,
+    loaded: bool,
+}
+
+impl Playlist {
+    pub fn new() -> Self {
+        Self { lib: 0, pl_i: 0, show_pl: false, playing: None, total: 0, loaded: false }
+    }
+    fn ensure(&mut self, sys: &mut Sys) {
+        if self.loaded {
+            return;
+        }
+        self.loaded = true;
+        sys.settings.playlist.retain(|&i| (i as usize) < TUNES.len());
+        if sys.settings.playlist.len() > PL_MAX {
+            sys.settings.playlist.truncate(PL_MAX);
+        }
+    }
+    fn save(&mut self, sys: &mut Sys) {
+        sys.save();
+        sys.snd(Snd::Accept);
+    }
+    fn track_ms(idx: usize) -> u64 {
+        let t = &TUNES[idx];
+        let sixteenth = 15_000u32 / t.bpm.max(30) as u32;
+        t.notes.iter().map(|&(_, len)| sixteenth * len as u32).sum::<u32>() as u64
+    }
+    fn start_at(&mut self, sys: &mut Sys, pi: usize) {
+        let Some(&ti) = sys.settings.playlist.get(pi) else {
+            sys.snd(Snd::Error);
+            return;
+        };
+        let ti = ti as usize;
+        if ti >= TUNES.len() {
+            sys.snd(Snd::Error);
+            return;
+        }
+        let t = &TUNES[ti];
+        sys.play(sound::melody(t.notes, t.bpm));
+        self.total = Self::track_ms(ti);
+        self.playing = Some((sys.now, pi));
+        self.pl_i = pi;
+        self.show_pl = true;
+    }
+}
+
+impl App for Playlist {
+    fn key(&mut self, ev: KeyEvent, sys: &mut Sys) -> Flow {
+        self.ensure(sys);
+        if !ev.down() {
+            return Flow::Stay;
+        }
+        use crate::input::Nav::*;
+        match ev.key.nav() {
+            Some(Up) | Some(Left) => {
+                if self.show_pl {
+                    let n = sys.settings.playlist.len().max(1);
+                    self.pl_i = (self.pl_i + n - 1) % n;
+                } else {
+                    self.lib = (self.lib + TUNES.len() - 1) % TUNES.len();
+                }
+                sys.snd(Snd::Click);
+            }
+            Some(Down) | Some(Right) => {
+                if self.show_pl {
+                    let n = sys.settings.playlist.len().max(1);
+                    self.pl_i = (self.pl_i + 1) % n;
+                } else {
+                    self.lib = (self.lib + 1) % TUNES.len();
+                }
+                sys.snd(Snd::Click);
+            }
+            Some(Ok) if ev.press() => {
+                if self.playing.is_some() {
+                    self.playing = None;
+                    sys.silence();
+                    sys.snd(Snd::Back);
+                } else if self.show_pl {
+                    self.start_at(sys, self.pl_i.min(sys.settings.playlist.len().saturating_sub(1)));
+                } else if sys.settings.playlist.len() < PL_MAX {
+                    sys.settings.playlist.push(self.lib as u8);
+                    self.save(sys);
+                } else {
+                    sys.snd(Snd::Error);
+                }
+            }
+            Some(Back) if ev.press() => {
+                sys.silence();
+                return Flow::Exit;
+            }
+            _ => match ev.key {
+                Key::A if ev.press() => {
+                    self.show_pl = !self.show_pl;
+                    sys.snd(Snd::Select);
+                }
+                Key::B if ev.press() => {
+                    if self.show_pl {
+                        if !sys.settings.playlist.is_empty() {
+                            let i = self.pl_i.min(sys.settings.playlist.len() - 1);
+                            sys.settings.playlist.remove(i);
+                            if self.pl_i >= sys.settings.playlist.len() && self.pl_i > 0 {
+                                self.pl_i -= 1;
+                            }
+                            self.save(sys);
+                        } else {
+                            sys.snd(Snd::Error);
+                        }
+                    } else if sys.settings.playlist.len() < PL_MAX {
+                        sys.settings.playlist.push(self.lib as u8);
+                        self.save(sys);
+                    } else {
+                        sys.snd(Snd::Error);
+                    }
+                }
+                Key::C if ev.press() => {
+                    sys.settings.playlist.clear();
+                    self.pl_i = 0;
+                    self.playing = None;
+                    sys.silence();
+                    self.save(sys);
+                }
+                _ => {}
+            },
+        }
+        Flow::Stay
+    }
+    fn tick(&mut self, sys: &mut Sys) {
+        self.ensure(sys);
+        let Some((t0, pi)) = self.playing else { return };
+        if sys.now.saturating_sub(t0) <= self.total + 80 {
+            return;
+        }
+        let next = pi + 1;
+        if next < sys.settings.playlist.len() {
+            self.start_at(sys, next);
+        } else {
+            // loop
+            self.start_at(sys, 0);
+        }
+    }
+    fn on_exit(&mut self, sys: &mut Sys) {
+        sys.silence();
+    }
+    fn keep_awake(&self) -> bool {
+        self.playing.is_some()
+    }
+    fn draw(&self, a: &mut Fb, b: &mut Fb, sys: &Sys) {
+        gfx::title(a, if self.show_pl { "PLAYLIST" } else { "ADD SONGS" });
+        let n_pl = sys.settings.playlist.len();
+        if self.show_pl {
+            if n_pl == 0 {
+                gfx::text_c(a, 64, 28, "empty", F::L7x13, true);
+                gfx::text_c(a, 64, 44, "A:library B:add", F::S5x8, true);
+            } else {
+                let i = self.pl_i.min(n_pl - 1);
+                let ti = sys.settings.playlist[i] as usize % TUNES.len();
+                gfx::text(a, 4, 18, &format!("{}/{}", i + 1, n_pl), F::S5x8, true);
+                gfx::text(a, 4, 28, &gfx::clip(TUNES[ti].name, 18), F::L7x13, true);
+                if let Some((t0, pi)) = self.playing {
+                    let el = (sys.now - t0).min(self.total);
+                    gfx::bar(a, 4, 44, 120, 6, el as i32, self.total.max(1) as i32);
+                    gfx::text(a, 4, 52, &format!("playing #{}", pi + 1), F::S4x6, true);
+                }
+            }
+            gfx::hint(a, "#play B:rm C:clr A:lib");
+        } else {
+            let t = &TUNES[self.lib];
+            gfx::text(a, 4, 18, &format!("{}/{}", self.lib + 1, TUNES.len()), F::S5x8, true);
+            gfx::text(a, 4, 28, &gfx::clip(t.name, 18), F::L7x13, true);
+            gfx::text(a, 4, 44, &format!("{} bpm  pl {}", t.bpm, n_pl), F::M6x10, true);
+            gfx::hint(a, "#/B:add A:playlist");
+        }
+        aux_panel(b, "QUEUE", &[]);
+        if n_pl == 0 {
+            gfx::text_c(b, 64, 30, "no tracks yet", F::M6x10, true);
+        } else {
+            let top = if self.pl_i < 4 { 0 } else { self.pl_i - 3 };
+            for row in 0..5 {
+                let i = top + row;
+                if i >= n_pl {
+                    break;
+                }
+                let ti = sys.settings.playlist[i] as usize % TUNES.len();
+                let y = 14 + row as i32 * 10;
+                let on = i == self.pl_i.min(n_pl - 1) && self.show_pl;
+                if on {
+                    b.fill_rect(0, y - 1, 128, 10, true);
+                }
+                let mark = if self.playing.map(|(_, p)| p) == Some(i) { ">" } else { " " };
+                gfx::text(b, 2, y, &format!("{}{}", mark, gfx::clip(TUNES[ti].name, 18)), F::M6x10, !on);
+            }
+        }
+    }
+}

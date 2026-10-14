@@ -49,8 +49,49 @@ pub const MARY: &[(u8, u8)] = &[
     (64, 4), (62, 4), (60, 4), (62, 4), (64, 4), (64, 4), (64, 4), (64, 4),
     (62, 4), (62, 4), (64, 4), (62, 4), (60, 12),
 ];
+/// London Bridge — G G A G F E E / F F F / G G G / … my fair lady
+pub const LONDON: &[(u8, u8)] = &[
+    (67, 4), (67, 4), (69, 4), (67, 4), (65, 4), (64, 4), (64, 8),
+    (65, 4), (65, 4), (65, 8),
+    (67, 4), (67, 4), (67, 8),
+    (67, 4), (67, 4), (69, 4), (67, 4), (65, 4), (64, 4), (64, 4), (64, 4),
+    (65, 4), (65, 4), (67, 4), (65, 4), (64, 12),
+];
+/// Amazing Grace — pickup G, then C E E D C E D | C A G …
+pub const GRACE: &[(u8, u8)] = &[
+    (67, 2), (72, 6), (76, 4), (76, 4), (74, 4), (72, 4), (76, 4), (74, 8),
+    (72, 4), (69, 4), (67, 6), (67, 2), (72, 4), (76, 4), (74, 12),
+    (76, 4), (74, 6), (72, 2), (74, 4), (72, 4), (69, 4), (67, 8),
+    (69, 4), (67, 6), (65, 2), (64, 12),
+];
+/// Greensleeves — Alas my love… (A C D E F E D B | C A A G# A)
+pub const GREEN: &[(u8, u8)] = &[
+    (69, 4), (72, 4), (74, 6), (76, 2), (77, 4), (76, 4), (74, 4), (71, 4),
+    (72, 4), (69, 4), (69, 6), (68, 2), (69, 8),
+    (69, 4), (72, 4), (74, 6), (76, 2), (77, 4), (76, 4), (74, 4), (71, 4),
+    (72, 4), (69, 4), (69, 6), (68, 2), (69, 8),
+    (72, 4), (74, 4), (76, 6), (77, 2), (79, 4), (77, 4), (76, 4), (74, 4),
+    (76, 4), (72, 4), (72, 6), (71, 2), (72, 8),
+    (72, 4), (74, 4), (76, 6), (77, 2), (79, 4), (77, 4), (76, 4), (74, 4),
+    (76, 4), (72, 4), (72, 6), (71, 2), (69, 12),
+];
+/// Pachelbel Canon in D — D A B F# G D G A ground, then rising figure
+pub const CANON: &[(u8, u8)] = &[
+    (74, 4), (69, 4), (71, 4), (66, 4), (67, 4), (62, 4), (67, 4), (69, 4),
+    (74, 4), (69, 4), (71, 4), (66, 4), (67, 4), (62, 4), (67, 4), (69, 4),
+    (78, 4), (76, 4), (74, 4), (73, 4), (71, 4), (69, 4), (71, 4), (73, 4),
+    (74, 4), (78, 4), (81, 4), (78, 4), (79, 4), (74, 4), (79, 4), (81, 8),
+];
+/// Classic trumpet-call fanfare (4ths / 5ths), not a named royal anthem
+pub const FANFARE: &[(u8, u8)] = &[
+    (72, 2), (72, 2), (72, 2), (72, 4), (67, 4), (72, 8),
+    (0, 2),
+    (72, 2), (72, 2), (72, 2), (72, 4), (67, 4), (72, 4), (76, 8),
+    (76, 4), (74, 4), (72, 4), (67, 4), (72, 8),
+    (76, 2), (76, 2), (76, 4), (79, 8), (76, 4), (72, 12),
+];
 
-pub const TUNES: [Tune; 7] = [
+pub const TUNES: [Tune; 12] = [
     Tune { name: "Ode to Joy", bpm: 130, notes: ODE },
     Tune { name: "Twinkle Twinkle", bpm: 120, notes: TWINKLE },
     Tune { name: "Happy Birthday", bpm: 110, notes: BIRTHDAY },
@@ -58,4 +99,9 @@ pub const TUNES: [Tune; 7] = [
     Tune { name: "Fur Elise", bpm: 135, notes: ELISE },
     Tune { name: "Frere Jacques", bpm: 120, notes: FRERE },
     Tune { name: "Mary Had a Lamb", bpm: 125, notes: MARY },
+    Tune { name: "London Bridge", bpm: 115, notes: LONDON },
+    Tune { name: "Amazing Grace", bpm: 80, notes: GRACE },
+    Tune { name: "Greensleeves", bpm: 95, notes: GREEN },
+    Tune { name: "Canon in D", bpm: 88, notes: CANON },
+    Tune { name: "Trumpet Call", bpm: 130, notes: FANFARE },
 ];

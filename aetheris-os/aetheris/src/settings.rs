@@ -29,6 +29,8 @@ pub struct Settings {
     pub ir_wake: bool,
     pub wifi_auto: bool,
     pub note: String,
+    /// Ordered Music Box track indices (max 16). Survives reboot.
+    pub playlist: Vec<u8>,
 }
 
 pub fn hash_pw(salt: &[u8; 8], pw: &str) -> [u8; 32] {
@@ -66,6 +68,7 @@ impl Default for Settings {
             ir_wake: true,
             wifi_auto: true,
             note: String::new(),
+            playlist: Vec::new(),
         }
     }
 }
@@ -115,6 +118,10 @@ impl Settings {
         let n = &n[..n.len().min(600)];
         v.extend_from_slice(&(n.len() as u16).to_le_bytes());
         v.extend_from_slice(n);
+        // playlist is optional for older images: new encoders always append it before CRC
+        let pl = &self.playlist[..self.playlist.len().min(16)];
+        v.push(pl.len() as u8);
+        v.extend_from_slice(pl);
         let c = crc32(&v);
         v.extend_from_slice(&c.to_le_bytes());
         v
@@ -150,6 +157,14 @@ impl Settings {
         s.wifi_auto = f[1] != 0;
         let n = u16::from_le_bytes(r.take(2)?.try_into().ok()?) as usize;
         s.note = String::from_utf8(r.take(n)?.to_vec()).ok()?;
+        // old blobs have only CRC left (4 bytes); new ones have playlist_len + entries + CRC
+        if b.len().saturating_sub(r.i) > 4 {
+            let pn = r.take(1)?[0] as usize;
+            if pn > 16 {
+                return None;
+            }
+            s.playlist = r.take(pn)?.to_vec();
+        }
         let end = r.i;
         let crc = u32::from_le_bytes(r.take(4)?.try_into().ok()?);
         if crc32(&b[..end]) != crc {

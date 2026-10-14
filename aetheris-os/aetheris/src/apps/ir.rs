@@ -171,3 +171,147 @@ impl App for Tach {
         }
     }
 }
+
+// ───────────────────────────── Proximity alarm ─────────────────────────────
+/// Arms the IR beam as a tripwire: wave / break the beam → buzzer + LED.
+pub struct ProxAlarm {
+    armed: bool,
+    alarming: bool,
+    /// Count beam-break events while armed.
+    trips: u32,
+    last_falls: u32,
+    /// Quiet period after a trip so the siren does not re-trigger immediately.
+    cool_until: u64,
+    /// true = trip on falling edge · false = trip while continuously blocked.
+    edge_mode: bool,
+    siren_at: u64,
+}
+
+impl ProxAlarm {
+    pub fn new() -> Self {
+        Self {
+            armed: false,
+            alarming: false,
+            trips: 0,
+            last_falls: 0,
+            cool_until: 0,
+            edge_mode: true,
+            siren_at: 0,
+        }
+    }
+    fn trip(&mut self, sys: &mut Sys) {
+        self.alarming = true;
+        self.trips = self.trips.saturating_add(1);
+        self.cool_until = sys.now + 2500;
+        self.siren_at = sys.now;
+        sys.snd(Snd::Alarm);
+        sys.led_pulse(2000);
+    }
+}
+
+impl App for ProxAlarm {
+    fn key(&mut self, ev: KeyEvent, sys: &mut Sys) -> Flow {
+        if !ev.press() {
+            return Flow::Stay;
+        }
+        match ev.key {
+            Key::Hash | Key::K5 => {
+                if self.alarming {
+                    self.alarming = false;
+                    sys.silence();
+                    sys.snd(Snd::Back);
+                } else {
+                    self.armed = !self.armed;
+                    self.last_falls = sys.ir.falls;
+                    self.cool_until = sys.now + 800; // arming grace so your hand does not trip it
+                    sys.snd(if self.armed { Snd::Lock } else { Snd::Unlock });
+                }
+            }
+            Key::A => {
+                self.edge_mode = !self.edge_mode;
+                sys.snd(Snd::Select);
+            }
+            Key::B => {
+                self.trips = 0;
+                sys.snd(Snd::Back);
+            }
+            Key::Star | Key::D => {
+                sys.silence();
+                return Flow::Exit;
+            }
+            _ if self.alarming => {
+                self.alarming = false;
+                sys.silence();
+                sys.snd(Snd::Back);
+            }
+            _ => {}
+        }
+        Flow::Stay
+    }
+    fn tick(&mut self, sys: &mut Sys) {
+        if !self.armed {
+            self.last_falls = sys.ir.falls;
+            return;
+        }
+        if sys.now < self.cool_until {
+            self.last_falls = sys.ir.falls;
+            // keep siren looping while alarming
+            if self.alarming && sys.now >= self.siren_at {
+                sys.snd(Snd::Alarm);
+                sys.led_pulse(1500);
+                self.siren_at = sys.now + 1600;
+            }
+            return;
+        }
+        let trip = if self.edge_mode {
+            sys.ir.falls != self.last_falls
+        } else {
+            sys.ir.blocked
+        };
+        self.last_falls = sys.ir.falls;
+        if trip {
+            self.trip(sys);
+        }
+        if self.alarming && sys.now >= self.siren_at {
+            sys.snd(Snd::Alarm);
+            sys.led_pulse(1500);
+            self.siren_at = sys.now + 1600;
+        }
+    }
+    fn on_exit(&mut self, sys: &mut Sys) {
+        sys.silence();
+    }
+    fn keep_awake(&self) -> bool {
+        self.armed || self.alarming
+    }
+    fn draw(&self, a: &mut Fb, b: &mut Fb, sys: &Sys) {
+        gfx::title(a, "PROX ALARM");
+        let status = if self.alarming {
+            "ALARM!"
+        } else if self.armed {
+            "ARMED"
+        } else {
+            "disarmed"
+        };
+        gfx::text_c(a, 64, 20, status, F::XL9x15, true);
+        gfx::text_c(a, 64, 40, &format!("trips {}", self.trips), F::M6x10, true);
+        gfx::hint(a, if self.alarming { "any key: silence" } else { "#arm A:mode B:clr" });
+
+        aux_panel(b, "SENSOR", &[]);
+        if sys.ir.blocked {
+            b.disc(64, 28, 16, true);
+            gfx::text_c(b, 64, 24, "NEAR", F::M6x10, false);
+        } else {
+            b.circle(64, 28, 16, true);
+            gfx::text_c(b, 64, 24, "clear", F::M6x10, true);
+        }
+        gfx::text_c(
+            b,
+            64,
+            50,
+            if self.edge_mode { "mode: edge trip" } else { "mode: while near" },
+            F::S5x8,
+            true,
+        );
+    }
+}

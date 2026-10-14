@@ -85,6 +85,9 @@ apps! {
     "Focus", "Pomodoro work timer", 28, tools::Focus::new();
     "Calendar", "Month view + dates", 29, tools::Calendar::new();
     "Converter", "Length, temp, mass...", 30, tools::Converter::new();
+    "Playlist", "Build & play queues", 31, music::Playlist::new();
+    "Prox Alarm", "IR tripwire siren", 32, ir::ProxAlarm::new();
+    "Ninja Run", "Jump the obstacles", 33, games::Ninja::new();
 }
 
 /// Scrolling list drawn on the main screen body (y = 17..63). `rows` rows of 11 px.
