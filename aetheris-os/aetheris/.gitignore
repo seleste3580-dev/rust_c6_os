@@ -1,0 +1,4 @@
+/target
+/sim/target
+*.bin
+*.elf

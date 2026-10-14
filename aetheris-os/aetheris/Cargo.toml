@@ -1,0 +1,66 @@
+[package]
+edition      = "2024"
+name         = "aetheris"
+description  = "Aetheris OS - phone-style firmware for ESP32-C6 by Seleste Technologies"
+rust-version = "1.95"
+version      = "0.1.0"
+
+[[bin]]
+name = "aetheris"
+path = "./src/bin/main.rs"
+
+[lib]
+name = "aetheris"
+path = "src/lib.rs"
+
+[dependencies]
+esp-hal = { version = "~1.2.2", features = ["esp32c6", "log-04", "unstable"] }
+
+esp-rtos = { version = "0.4.0", features = [
+  "embassy",
+  "esp-alloc",
+  "esp-radio",
+  "esp32c6",
+  "log-04",
+] }
+
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c6", "log-04"] }
+log                    = "0.4.27"
+
+esp-alloc = { version = "0.11.0", features = ["esp32c6"] }
+esp-println = { version = "0.18.0", features = ["esp32c6", "log-04"] }
+embassy-executor = { version = "0.10.0", features = ["log"] }
+embassy-time = { version = "0.5.0", features = ["log"] }
+esp-radio = { version = "1.0.0-beta.1", features = [
+  "esp-alloc",
+  "esp32c6",
+  "log-04",
+  "unstable",
+  "wifi",
+] }
+
+critical-section = "1.2.0"
+embedded-graphics = "0.8.1"
+
+# --- Aetheris additions ---------------------------------------------------------------------
+embedded-hal = "1.0.0"
+embassy-sync = "0.8.0"
+embassy-futures = "0.1.2"
+embassy-net = { version = "0.9.1", features = ["tcp", "udp", "dns", "dhcpv4", "medium-ethernet", "proto-ipv4", "log"] }
+embedded-io-async = "0.7.0"
+esp-storage = { version = "0.10.0", features = ["esp32c6"] }
+sha2 = { version = "0.10", default-features = false }
+static_cell = "2.1.1"
+
+
+# For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.dev]
+# The default debug profile is too slow and too big for resource-constrained devices.
+# Always build with some optimizations enabled.
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1     # LLVM can perform better optimizations using a single thread
+debug         = 2     # prefer slower builds but better debugging experience
+lto           = 'fat'
+opt-level     = 's'

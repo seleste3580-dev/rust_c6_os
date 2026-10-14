@@ -1,0 +1,19 @@
+[package]
+name = "aetheris-sim"
+version = "0.1.0"
+edition = "2024"
+description = "PC simulator + unit tests for the hardware-independent half of Aetheris OS"
+
+[workspace]
+
+[lib]
+name = "aetheris"
+path = "../aetheris/src/lib.rs"
+
+[[bin]]
+name = "render"
+path = "src/main.rs"
+
+[dependencies]
+embedded-graphics = "0.8.1"
+sha2 = { version = "0.10", default-features = false }
