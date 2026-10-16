@@ -4,6 +4,7 @@ pub mod ir;
 pub mod keypad;
 pub mod net;
 pub mod oled;
+pub mod programmer;
 pub mod shared;
 pub mod soft_i2c;
 pub mod storage;

@@ -31,6 +31,7 @@ use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::rng::Rng;
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
+use esp_hal::uart::{Config as UartConfig, Uart};
 use esp_radio::wifi::{Interface, WifiController};
 use static_cell::StaticCell;
 
@@ -86,6 +87,13 @@ async fn main(spawner: Spawner) {
         [peripherals.GPIO10.degrade(), peripherals.GPIO11.degrade(), peripherals.GPIO18.degrade(), peripherals.GPIO19.degrade()],
     );
     let mut led = Output::new(peripherals.GPIO22, Level::Low, OutputConfig::default());
+    let slave_boot = Output::new(peripherals.GPIO5, Level::High, OutputConfig::default());
+    let slave_reset = Output::new(peripherals.GPIO15, Level::High, OutputConfig::default());
+    let slave_uart = Uart::new(peripherals.UART1, UartConfig::default().with_baudrate(115_200))
+        .unwrap()
+        .with_rx(peripherals.GPIO9)
+        .with_tx(peripherals.GPIO8)
+        .into_async();
 
     // ── flash + settings ────────────────────────────────────────────────────────────────
     *FLASH.lock().await = Some(esp_storage::FlashStorage::new(peripherals.FLASH));
@@ -109,7 +117,7 @@ async fn main(spawner: Spawner) {
     let saved = if settings.wifi_ssid.is_empty() { None } else { Some((settings.wifi_ssid.clone(), settings.wifi_pass.clone())) };
     spawner.spawn(net_runner(runner).unwrap());
     spawner.spawn(wifi_task(ctrl, stack, mac, saved, settings.wifi_auto).unwrap());
-    spawner.spawn(http_task(stack).unwrap());
+    spawner.spawn(http_task(stack, slave_uart, slave_boot, slave_reset).unwrap());
 
     // ── the OS ──────────────────────────────────────────────────────────────────────────
     let mut sys = Sys::new(settings, seed as u32 ^ (seed >> 32) as u32);

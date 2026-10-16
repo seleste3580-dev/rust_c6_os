@@ -1,0 +1,1 @@
+/home/seleste/c6\ os/aetheris-os/c3-programmer-test/target/riscv32imc-unknown-none-elf/release/c3-programmer-test: /home/seleste/c6\ os/aetheris-os/c3-programmer-test/build.rs /home/seleste/c6\ os/aetheris-os/c3-programmer-test/src/main.rs

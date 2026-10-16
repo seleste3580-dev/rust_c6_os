@@ -1,0 +1,9 @@
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/esp-metadata-generated/d8465b72c3ff3f3c/out/esp_metadata_generated-d8465b72c3ff3f3c.d: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_generated_esp32c3.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_build_script_utils.rs
+
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/esp-metadata-generated/d8465b72c3ff3f3c/out/libesp_metadata_generated-d8465b72c3ff3f3c.rlib: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_generated_esp32c3.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_build_script_utils.rs
+
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/esp-metadata-generated/d8465b72c3ff3f3c/out/libesp_metadata_generated-d8465b72c3ff3f3c.rmeta: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_generated_esp32c3.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_build_script_utils.rs
+
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/lib.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_generated_esp32c3.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/esp-metadata-generated-0.5.3/src/_build_script_utils.rs:

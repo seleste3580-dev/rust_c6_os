@@ -30,7 +30,7 @@
 │                  multi-tap text entry · phone-style keypad legend            │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  SERVICES        Buzzer sound engine · IR/NEC decoder · Settings (CRC+SHA)   │
-│                  Wi-Fi manager · DHCP · SNTP clock · OTA HTTP endpoint       │
+│                  Wi-Fi manager · DHCP · SNTP · OTA + slave flash HTTP        │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │  RUNTIME         Rust 2024 · #![no_std] + alloc · Embassy async executor     │
 │                  esp-rtos · esp-hal 1.2 · esp-radio · embassy-net/smoltcp    │
@@ -46,7 +46,7 @@
 | ⚙️ HAL | **esp-hal 1.2** | GPIO, I²C, LEDC (PWM), RNG, reset |
 | 🧵 Scheduler | **esp-rtos** + **Embassy** | async tasks, timers |
 | 📡 Radio | **esp-radio** (Wi-Fi 6, 2.4 GHz) | scan, join, auto-reconnect |
-| 🌐 Network | **embassy-net** (smoltcp) | DHCP, DNS, UDP (SNTP), TCP (OTA) |
+| 🌐 Network | **embassy-net** (smoltcp) | DHCP, DNS, UDP (SNTP), TCP OTA / slave programmer |
 | 🖥 Graphics | **embedded-graphics** + own SSD1306/SH1106 driver | two OLED panels |
 | 💾 Storage | **esp-storage** + **esp-bootloader-esp-idf** | settings, partitions, OTA slots |
 | 🔐 Security | **sha2** (salted SHA-256) | login password hash |
@@ -68,7 +68,7 @@
 - **IR sensor** – wakes the screen with a wave, counts objects, measures RPM, decodes NEC remote codes.
 - **Buzzer voices** – boot jingle, accept, error, back, notify, alarm, lock/unlock, connect/disconnect, shutdown… all with adjustable volume.
 - **Piano** – every semitone (sharps/flats) with real frequencies, octave shift, and a **chord mode** (maj, min, 7, maj7, m7, dim, aug, sus2, sus4, 6, m6, add9).
-- **OTA** – flash new firmware over Wi-Fi into the inactive slot, automatic rollback protection.
+- **OTA + slave programmer** – self-update into the inactive slot with rollback protection, or stage an app image and flash an ESP32-C3/S3/C6 slave over controlled UART boot mode.
 - **Persistent** – settings and notes survive reboots (CRC-protected flash partition).
 
 ---
@@ -84,6 +84,7 @@
 | 5 | **IR sensor** (`OUT GND VCC`) | obstacle/proximity module *or* TSOP-style receiver |
 | 6 | **Passive buzzer** (`GND I/O VCC`) | driven with PWM |
 | 7 | **Green LED** + resistor (220 Ω – 1 kΩ) | Wi-Fi status |
+| 8 | Optional **ESP32-C3/S3/C6 slave** | 3.3 V UART; power separately |
 
 ## 🔧 Wiring (all connections)
 
@@ -109,11 +110,26 @@
 | **Passive buzzer** | I/O | **GPIO23** | PWM tone |
 | | VCC (VSS) | **3V3** | |
 | | GND | **GND** | |
+| **Slave programmer** | UART TX → target UART0 RX | **GPIO8** | ESP32-C6 UART1, 115200 baud |
+| | UART RX ← target UART0 TX | **GPIO9** | cross TX/RX |
+| | BOOT control → target BOOT strap | **GPIO5** | active low |
+| | RESET control → target EN/RESET | **GPIO15** | active low |
+| | Ground | **GND** | common ground; power slave separately |
 
 > **Why two separate I²C buses?** Both panels normally share the address `0x3C`, so they cannot sit on one bus.
 > Giving OLED B its own pins means **no address jumpers or multiplexer are needed** and each screen is fully independent.
 >
-> Pins deliberately **not** used: GPIO5, 8, 9, 15 (boot/strapping), GPIO12/13 (USB), GPIO16/17 (UART0 console), GPIO24-30 (flash).
+> The programmer uses GPIO5, 8, 9 and 15 when a slave is attached. GPIO8/9 on the host are strap pins; keep the slave UART high-impedance while Aetheris resets. GPIO15 is a host strapping pin, so the target EN pull-up must leave it high while Aetheris resets.
+
+### Slave target UART0 pins
+
+| Slave chip | Target RX (connect from Aetheris GPIO8 TX) | Target TX (connect to Aetheris GPIO9 RX) | BOOT strap |
+|---|---:|---:|---:|
+| ESP32-C3 dev board with UART labels | RX | TX | GPIO9 / BOOT |
+| ESP32-S3 | GPIO44 | GPIO43 | GPIO0 |
+| ESP32-C6 | GPIO17 | GPIO16 | GPIO9 |
+
+For a C3 dev board, use its printed **RX** and **TX** pins (these are the UART0 connections; GPIO20/21 are not exposed on every board). Connect Aetheris GPIO5 to target GPIO9/BOOT, GPIO15 to EN, and both grounds. Power the target independently; only share 5V if the source and both boards' power arrangements are understood. Never connect both 5V sources together or connect the 3V3 rails.
 
 ### Wiring diagram
 
@@ -295,7 +311,7 @@ stateDiagram-v2
 | 24 | **System** | heap, uptime, flash, MAC, FPS, memory graph | `2/8` page |
 | 25 | **Key Test** | shows row/col of each key, live matrix | hold `*` exit |
 | 26 | **Torch** | both OLEDs white + LED | any key = mode |
-| 27 | **OTA Update** | wireless firmware update | `#` server on/off |
+| 27 | **OTA / Programmer** | self OTA or ESP32-C3/S3/C6 slave app flashing over UART | `2/8` mode · `4/6` target · `#` server |
 | 28 | **Focus** | Pomodoro timer: work / short break / long break every 4th, chime + LED, focus stats | `#` start/pause · `4/6` work ±5 min · `2/8` break ±1 min · `B` skip · `A` restart · `C` reset |
 | 29 | **Calendar** | month grid (Mon-first) on OLED B, weekday · day of year · ISO week · days from today | `4/6` day · `2/8` week · `A/B` month · `1/3` year · `C` today |
 | 30 | **Converter** | length, mass, temperature, volume, speed, area, data, energy; all units listed on OLED B | digits · `*` point · hold `*` ± · `A` type · `B` from · `C` to · `#` delete (hold = clear) · `D` exit |
@@ -397,7 +413,7 @@ mindmap
 * **Join a network:** Settings → Wi-Fi → *Scan networks* → pick one → type the password → connected. The credentials are saved and re-used at every boot (*Auto-connect*).
 * **Status LED:** solid = connected · fast blink = connecting · slow blink = scanning.
 * **Clock:** synced from `pool.ntp.org` right after connecting (time zone default **UTC+3**, change in Settings → Date & Time).
-* **OTA update:**
+* **Self OTA update:**
   1. Connect to Wi-Fi, open **Menu → OTA Update**, press `#` (the screen shows the IP address).
   2. On your PC:
      ```sh
@@ -405,10 +421,18 @@ mindmap
      espflash save-image --chip esp32c6 target/riscv32imac-unknown-none-elf/release/aetheris aetheris.bin
      curl --data-binary @aetheris.bin http://<device-ip>/ota
      ```
+     Leave out `--merge` so `save-image` emits the app-only image rather than a full-flash image.
   3. The image is written to the *inactive* slot (`ota_0` ⇄ `ota_1`), validated (ESP32-C6 image header), activated, and the device reboots into it.
      A newly booted image is marked *valid* automatically; if it crashes before that the bootloader can roll back.
   > OTA only works if the first flash used the custom partition table (`partitions.csv`, done automatically by `cargo run`).
-  > The OTA endpoint has no password: it is only open while you have the OTA app running — use it on a trusted network.
+  > OTA and programmer endpoints have no password: they are only open while this menu is active — use them on a trusted network.
+* **Program a slave:** In **OTA / Programmer**, use `2/8` to choose slave programming, `4/6` to choose C3/S3/C6, then press `#`. Build an app-only image for that chip (not a merged full-flash image) and upload it:
+  ```sh
+  espflash save-image --chip esp32c3 target.elf slave-app.bin
+  curl --data-binary @slave-app.bin http://<device-ip>/program/c3
+  ```
+  Use `/program/s3` or `/program/c6` for those targets. Do not pass `--merge`: the programmer needs an app-only image. The image is staged in a verified unused host-flash range before the slave is reset into its UART ROM loader. It is flashed at `0x10000`; the slave must use that app partition offset, and its bootloader and partition table are preserved. The server validates the image header, segments, checksum, optional SHA-256, embedded chip ID, and attached target chip before erasing the slave app. Use an app image no larger than 3 MB, not a merged full-flash image. Secure-boot/encrypted targets are not supported. A power loss during slave flashing may require reflashing that slave over USB; Aetheris firmware and settings are not overwritten.
+  > A ready-to-upload LED blink test image and ESP32-C6 ↔ ESP32-C3 wiring table are in [`c3-programmer-test/`](../c3-programmer-test/).
 
 ---
 

@@ -1,8 +1,9 @@
 //! Wi-Fi station manager (scan / connect / auto-reconnect / DHCP), SNTP time sync and the
 //! wireless firmware-update (OTA) HTTP endpoint.
-use super::shared::{OTA_ON, TIME_SYNC, WIFI_CMD, WIFI_STATE};
+use super::programmer;
+use super::shared::{OTA_ON, PROGRAM_ON, PROGRAM_TARGET, TIME_SYNC, WIFI_CMD, WIFI_STATE};
 use super::storage::FLASH;
-use crate::sys::{ApRec, OtaState, WifiCmd, WifiState, WifiStatus};
+use crate::sys::{ApRec, OtaState, ProgramState, ProgramTarget, WifiCmd, WifiState, WifiStatus};
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::sync::atomic::Ordering;
@@ -15,12 +16,24 @@ use embassy_time::{Duration, Instant, Timer, with_timeout};
 use embedded_io_async::Write;
 use esp_bootloader_esp_idf::ota::OtaImageState;
 use esp_bootloader_esp_idf::partitions::{AppPartitionSubType, DataPartitionSubType, PARTITION_TABLE_MAX_LEN, PartitionType, read_partition_table};
+use esp_hal::Async;
+use esp_hal::gpio::Output;
+use esp_hal::uart::Uart;
 use esp_radio::wifi::scan::ScanConfig;
 use esp_radio::wifi::sta::StationConfig;
 use esp_radio::wifi::{AuthenticationMethod, AuthenticationMethodConfig, Config, Interface, Ssid, WifiController};
 
 fn upd(f: impl FnOnce(&mut WifiState)) {
     WIFI_STATE.lock(|s| f(&mut s.borrow_mut()));
+}
+
+fn stop_update_servers() {
+    OTA_ON.store(false, Ordering::Relaxed);
+    PROGRAM_ON.store(false, Ordering::Relaxed);
+    upd(|s| {
+        s.ota = OtaState::Idle;
+        s.program = ProgramState::Idle;
+    });
 }
 
 #[embassy_executor::task]
@@ -170,6 +183,7 @@ impl Mgr {
                     let _ = self.ctrl.disconnect_async().await;
                     self.connected = false;
                 }
+                stop_update_servers();
                 self.enabled = true;
                 self.want = Some((ssid, pass));
                 self.retry_at = Instant::now();
@@ -180,6 +194,7 @@ impl Mgr {
                     let _ = self.ctrl.disconnect_async().await;
                     self.connected = false;
                 }
+                stop_update_servers();
                 let st = self.idle_status();
                 upd(|s| s.status = st);
             }
@@ -188,6 +203,9 @@ impl Mgr {
                 if !on && self.connected {
                     let _ = self.ctrl.disconnect_async().await;
                     self.connected = false;
+                }
+                if !on {
+                    stop_update_servers();
                 }
                 if on {
                     self.retry_at = Instant::now();
@@ -198,6 +216,12 @@ impl Mgr {
             WifiCmd::OtaServer(on) => {
                 OTA_ON.store(on && self.connected, Ordering::Relaxed);
                 upd(|s| s.ota = if on && self.connected { OtaState::Listening } else { OtaState::Idle });
+            }
+            WifiCmd::ProgramServer { on, target } => {
+                let enabled = on && self.connected;
+                PROGRAM_TARGET.store(target.index(), Ordering::Relaxed);
+                PROGRAM_ON.store(enabled, Ordering::Relaxed);
+                upd(|s| s.program = if enabled { ProgramState::Listening } else { ProgramState::Idle });
             }
             WifiCmd::SyncTime => {
                 if self.connected {
@@ -234,9 +258,11 @@ pub async fn wifi_task(ctrl: WifiController<'static>, stack: Stack<'static>, mac
                 Either3::Second(_) => {
                     m.connected = false;
                     OTA_ON.store(false, Ordering::Relaxed);
+                    PROGRAM_ON.store(false, Ordering::Relaxed);
                     upd(|s| {
                         s.status = WifiStatus::Idle;
                         s.ota = OtaState::Idle;
+                        s.program = ProgramState::Idle;
                         s.ip = [0; 4];
                     });
                     m.retry_at = Instant::now() + Duration::from_secs(3);
@@ -282,8 +308,9 @@ async fn sntp(stack: Stack<'static>) -> Option<i64> {
 // ───────────────────────────── OTA over HTTP ─────────────────────────────
 
 const PAGE: &str = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<html><body style='font-family:monospace;background:#001;color:#4af'>\
-<h2>Aetheris OS &middot; OTA</h2><p>Seleste Technologies</p>\
-<p>Upload firmware: <code>curl --data-binary @aetheris.bin http://THIS-IP/ota</code></p></body></html>";
+<h2>Aetheris OS &middot; Firmware</h2><p>Seleste Technologies</p>\
+<p>Self-update: <code>curl --data-binary @aetheris.bin http://THIS-IP/ota</code></p>\
+<p>Slave app image: <code>curl --data-binary @slave.bin http://THIS-IP/program/c3</code></p></body></html>";
 
 async fn respond(sock: &mut TcpSocket<'_>, code: &str, body: &str) {
     let _ = sock.write_all(b"HTTP/1.1 ").await;
@@ -298,11 +325,16 @@ fn find(h: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 #[embassy_executor::task]
-pub async fn http_task(stack: Stack<'static>) {
+pub async fn http_task(
+    stack: Stack<'static>,
+    mut uart: Uart<'static, Async>,
+    mut boot: Output<'static>,
+    mut reset: Output<'static>,
+) {
     let mut rx = [0u8; 2048];
     let mut tx = [0u8; 1024];
     loop {
-        if !OTA_ON.load(Ordering::Relaxed) {
+        if !OTA_ON.load(Ordering::Relaxed) && !PROGRAM_ON.load(Ordering::Relaxed) {
             Timer::after(Duration::from_millis(500)).await;
             continue;
         }
@@ -315,14 +347,14 @@ pub async fn http_task(stack: Stack<'static>) {
                 continue;
             }
         }
-        serve(&mut sock).await;
+        serve(&mut sock, &mut uart, &mut boot, &mut reset).await;
         sock.close();
         let _ = with_timeout(Duration::from_secs(2), sock.flush()).await;
         sock.abort();
     }
 }
 
-async fn serve(sock: &mut TcpSocket<'_>) {
+async fn serve(sock: &mut TcpSocket<'_>, uart: &mut Uart<'static, Async>, boot: &mut Output<'static>, reset: &mut Output<'static>) {
     let mut hdr = [0u8; 1024];
     let mut n = 0usize;
     let hend = loop {
@@ -340,17 +372,18 @@ async fn serve(sock: &mut TcpSocket<'_>) {
     };
     let text = core::str::from_utf8(&hdr[..hend]).unwrap_or("");
     let first = text.lines().next().unwrap_or("");
-    if !(first.starts_with("POST /ota")) {
+    if first.starts_with("POST /program/") {
+        serve_program(sock, first, text, &hdr[hend..n], uart, boot, reset).await;
+        return;
+    }
+    if !(first.starts_with("POST /ota ")) || !OTA_ON.load(Ordering::Relaxed) {
         let _ = sock.write_all(PAGE.as_bytes()).await;
         return;
     }
-    let mut total = 0u32;
-    for l in text.lines() {
-        let low = l.as_bytes();
-        if low.len() > 15 && low[..15].eq_ignore_ascii_case(b"content-length:") {
-            total = l[15..].trim().parse().unwrap_or(0);
-        }
-    }
+    let Some(total) = content_length(text) else {
+        respond(sock, "400 Bad Request", "missing or invalid content-length\n").await;
+        return;
+    };
     if total < 1024 {
         respond(sock, "400 Bad Request", "missing or tiny content-length\n").await;
         return;
@@ -365,6 +398,73 @@ async fn serve(sock: &mut TcpSocket<'_>) {
         }
         Err(e) => {
             upd(|s| s.ota = OtaState::Failed(e));
+            respond(sock, "500 Error", e).await;
+        }
+    }
+}
+
+fn content_length(headers: &str) -> Option<u32> {
+    for l in headers.lines() {
+        let low = l.as_bytes();
+        if low.len() > 15 && low[..15].eq_ignore_ascii_case(b"content-length:") {
+            return l[15..].trim().parse().ok();
+        }
+    }
+    None
+}
+
+async fn serve_program(
+    sock: &mut TcpSocket<'_>,
+    first: &str,
+    headers: &str,
+    body: &[u8],
+    uart: &mut Uart<'static, Async>,
+    boot: &mut Output<'static>,
+    reset: &mut Output<'static>,
+) {
+    if !PROGRAM_ON.load(Ordering::Relaxed) {
+        respond(sock, "403 Forbidden", "slave programmer is disabled\n").await;
+        return;
+    }
+    let path = first.split_whitespace().nth(1).unwrap_or("");
+    let target = match path {
+        "/program/c3" => ProgramTarget::Esp32C3,
+        "/program/s3" => ProgramTarget::Esp32S3,
+        "/program/c6" => ProgramTarget::Esp32C6,
+        _ => {
+            respond(sock, "404 Not Found", "use /program/c3, /program/s3, or /program/c6\n").await;
+            return;
+        }
+    };
+    let selected = PROGRAM_TARGET.load(Ordering::Relaxed) as usize;
+    if ProgramTarget::ALL.get(selected) != Some(&target) {
+        respond(sock, "409 Conflict", "selected slave target does not match URL\n").await;
+        return;
+    }
+    let Some(total) = content_length(headers) else {
+        respond(sock, "400 Bad Request", "missing or invalid content-length\n").await;
+        return;
+    };
+    if total < 1024 || total > programmer::STAGING_SIZE {
+        respond(sock, "413 Payload Too Large", "app image must be 1 KB to 3 MB\n").await;
+        return;
+    }
+    upd(|s| s.program = ProgramState::Staging { done: 0, total });
+    match programmer::stage_image(sock, total, body, target).await {
+        Ok(()) => {
+            match programmer::flash_staged(uart, boot, reset, target, total).await {
+                Ok(()) => {
+                    programmer::state_done();
+                    respond(sock, "200 OK", "slave flashed and reset\n").await;
+                }
+                Err(e) => {
+                    programmer::state_error(e);
+                    respond(sock, "500 Error", e).await;
+                }
+            }
+        }
+        Err(e) => {
+            programmer::state_error(e);
             respond(sock, "500 Error", e).await;
         }
     }

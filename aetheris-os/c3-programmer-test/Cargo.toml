@@ -1,0 +1,17 @@
+[package]
+name = "c3-programmer-test"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "c3-programmer-test"
+path = "src/main.rs"
+
+[dependencies]
+esp-hal = { version = "~1.2.2", features = ["esp32c3", "unstable"] }
+esp-bootloader-esp-idf = { version = "0.6.0", features = ["esp32c3"] }
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = "s"

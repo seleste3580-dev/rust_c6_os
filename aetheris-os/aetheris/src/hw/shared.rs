@@ -30,3 +30,5 @@ pub static SAVE: Signal<CriticalSectionRawMutex, Vec<u8>> = Signal::new();
 pub static TIME_SYNC: Signal<CriticalSectionRawMutex, i64> = Signal::new();
 /// True while the OTA HTTP server should accept connections.
 pub static OTA_ON: AtomicBool = AtomicBool::new(false);
+pub static PROGRAM_ON: AtomicBool = AtomicBool::new(false);
+pub static PROGRAM_TARGET: AtomicU8 = AtomicU8::new(0);

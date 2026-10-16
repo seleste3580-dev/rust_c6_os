@@ -81,7 +81,7 @@ apps! {
     "System", "Memory & hardware", 23, tools::SysInfo::new();
     "Key Test", "Matrix scanner", 24, tools::KeyTest::new();
     "Torch", "Screens + LED light", 25, tools::Torch::new();
-    "OTA Update", "Wireless firmware", 26, net::OtaApp::new();
+    "OTA / Programmer", "Self update or flash ESP slave", 26, net::OtaApp::new();
     "Focus", "Pomodoro work timer", 28, tools::Focus::new();
     "Calendar", "Month view + dates", 29, tools::Calendar::new();
     "Converter", "Length, temp, mass...", 30, tools::Converter::new();

@@ -1,0 +1,14 @@
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/serde/09b8227a5b6605fe/out/serde-09b8227a5b6605fe.d: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/seleste/c6\ os/aetheris-os/c3-programmer-test/target/release/build/serde/775aecc9d552f68a/out/private.rs
+
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/serde/09b8227a5b6605fe/out/libserde-09b8227a5b6605fe.rlib: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/seleste/c6\ os/aetheris-os/c3-programmer-test/target/release/build/serde/775aecc9d552f68a/out/private.rs
+
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/serde/09b8227a5b6605fe/out/libserde-09b8227a5b6605fe.rmeta: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/seleste/c6\ os/aetheris-os/c3-programmer-test/target/release/build/serde/775aecc9d552f68a/out/private.rs
+
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/home/seleste/c6\ os/aetheris-os/c3-programmer-test/target/release/build/serde/775aecc9d552f68a/out/private.rs:
+
+# env-dep:OUT_DIR=/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/serde/775aecc9d552f68a/out

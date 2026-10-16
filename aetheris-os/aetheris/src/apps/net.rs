@@ -4,7 +4,7 @@ use crate::fb::Fb;
 use crate::gfx::{self, F};
 use crate::input::{Key, KeyEvent, Nav};
 use crate::sound::Snd;
-use crate::sys::{OtaState, Sys, WifiCmd, WifiStatus, rssi_bars};
+use crate::sys::{OtaState, ProgramState, ProgramTarget, Sys, WifiCmd, WifiStatus, rssi_bars};
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -141,10 +141,12 @@ impl App for Signal {
 
 pub struct OtaApp {
     on: bool,
+    slave: bool,
+    target: usize,
 }
 impl OtaApp {
     pub fn new() -> Self {
-        Self { on: false }
+        Self { on: false, slave: false, target: 0 }
     }
 }
 impl App for OtaApp {
@@ -153,10 +155,34 @@ impl App for OtaApp {
             return Flow::Stay;
         }
         match ev.key {
+            Key::K2 | Key::K8 => {
+                if self.on {
+                    sys.snd(Snd::Error);
+                } else {
+                    self.slave = !self.slave;
+                    sys.snd(Snd::Select);
+                }
+            }
+            Key::K4 | Key::K6 if self.slave => {
+                if self.on {
+                    sys.snd(Snd::Error);
+                } else {
+                    if ev.key == Key::K4 {
+                        self.target = self.target.saturating_sub(1);
+                    } else {
+                        self.target = (self.target + 1).min(ProgramTarget::ALL.len() - 1);
+                    }
+                    sys.snd(Snd::Select);
+                }
+            }
             Key::Hash | Key::K5 => {
                 if sys.wifi.connected() {
                     self.on = !self.on;
-                    sys.wifi_cmd(WifiCmd::OtaServer(self.on));
+                    if self.slave {
+                        sys.wifi_cmd(WifiCmd::ProgramServer { on: self.on, target: ProgramTarget::ALL[self.target] });
+                    } else {
+                        sys.wifi_cmd(WifiCmd::OtaServer(self.on));
+                    }
                     sys.snd(Snd::Accept);
                 } else {
                     sys.snd(Snd::Error);
@@ -164,7 +190,11 @@ impl App for OtaApp {
             }
             Key::Star | Key::D => {
                 if self.on {
-                    sys.wifi_cmd(WifiCmd::OtaServer(false));
+                    if self.slave {
+                        sys.wifi_cmd(WifiCmd::ProgramServer { on: false, target: ProgramTarget::ALL[self.target] });
+                    } else {
+                        sys.wifi_cmd(WifiCmd::OtaServer(false));
+                    }
                     self.on = false;
                 }
                 return Flow::Exit;
@@ -177,31 +207,55 @@ impl App for OtaApp {
         self.on
     }
     fn draw(&self, a: &mut Fb, b: &mut Fb, sys: &Sys) {
-        gfx::title(a, "OTA UPDATE");
+        gfx::title(a, if self.slave { "SLAVE FLASH" } else { "SELF OTA" });
         if !sys.wifi.connected() {
             gfx::text_c(a, 64, 26, "Connect to Wi-Fi first", F::M6x10, true);
             gfx::text_c(a, 64, 40, "Settings > Wi-Fi", F::M6x10, true);
         } else {
             let ip = sys.wifi.ip;
             gfx::text(a, 4, 19, &format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]), F::M6x10, true);
-            let st = match &sys.wifi.ota {
-                OtaState::Idle => String::from("server off"),
-                OtaState::Listening => String::from("waiting for upload"),
-                OtaState::Receiving { done, total } => format!("{} / {} KB", done / 1024, total / 1024),
-                OtaState::Done => String::from("done! rebooting"),
-                OtaState::Failed(e) => format!("failed: {}", e),
+            let st = if self.slave {
+                match &sys.wifi.program {
+                    ProgramState::Idle => String::from("server off"),
+                    ProgramState::Listening => String::from("waiting for bin"),
+                    ProgramState::Staging { done, total } => format!("stage {} / {} KB", done / 1024, total / 1024),
+                    ProgramState::Connecting => String::from("bootloader sync"),
+                    ProgramState::Flashing { done, total } => format!("flash {} / {} KB", done / 1024, total / 1024),
+                    ProgramState::Done => String::from("done; slave rebooted"),
+                    ProgramState::Failed(e) => format!("failed: {}", e),
+                }
+            } else {
+                match &sys.wifi.ota {
+                    OtaState::Idle => String::from("server off"),
+                    OtaState::Listening => String::from("waiting for upload"),
+                    OtaState::Receiving { done, total } => format!("{} / {} KB", done / 1024, total / 1024),
+                    OtaState::Done => String::from("done! rebooting"),
+                    OtaState::Failed(e) => format!("failed: {}", e),
+                }
             };
             gfx::text(a, 4, 32, &gfx::clip(&st, 20), F::M6x10, true);
-            if let OtaState::Receiving { done, total } = sys.wifi.ota {
+            if self.slave {
+                gfx::text(a, 4, 44, ProgramTarget::ALL[self.target].label(), F::S5x8, true);
+            } else if let OtaState::Receiving { done, total } = sys.wifi.ota {
                 gfx::bar(a, 4, 44, 120, 8, done as i32 / 64, (total as i32 / 64).max(1));
             }
         }
-        gfx::hint(a, "#:server on/off  *:exit");
-        aux_panel(b, "HOW TO UPDATE", &[]);
-        gfx::text(b, 3, 15, "1 cargo build --release", F::S5x8, true);
-        gfx::text(b, 3, 25, "2 espflash save-image", F::S5x8, true);
-        gfx::text(b, 3, 35, "   --chip esp32c6 a.bin", F::S5x8, true);
-        gfx::text(b, 3, 45, "3 curl --data-binary", F::S5x8, true);
-        gfx::text(b, 3, 55, "  @a.bin http://IP/ota", F::S5x8, true);
+        gfx::hint(a, "2/8 mode  4/6 chip  #:server");
+        if self.slave {
+            aux_panel(b, "SLAVE PROGRAM", &[]);
+            gfx::text(b, 3, 15, "app-only bin, offset 0x10000", F::S5x8, true);
+            gfx::text(b, 3, 25, "connect UART/BOOT/RESET/GND", F::S5x8, true);
+            let path = format!("POST bin /program/{}", ProgramTarget::ALL[self.target].slug());
+            gfx::text(b, 3, 35, &path, F::S5x8, true);
+            gfx::text(b, 3, 45, "checks chip id before flash", F::S5x8, true);
+            gfx::text(b, 3, 55, "* exits; may need recovery", F::S5x8, true);
+        } else {
+            aux_panel(b, "HOW TO UPDATE", &[]);
+            gfx::text(b, 3, 15, "1 espflash save-image", F::S5x8, true);
+            gfx::text(b, 3, 25, "2 --chip esp32c6", F::S5x8, true);
+            gfx::text(b, 3, 35, " (no --merge)", F::S5x8, true);
+            gfx::text(b, 3, 45, "3 curl --data-binary", F::S5x8, true);
+            gfx::text(b, 3, 55, " @a.bin http://IP/ota", F::S5x8, true);
+        }
     }
 }

@@ -12,6 +12,7 @@ pub enum WifiCmd {
     Disconnect,
     SetEnabled(bool),
     OtaServer(bool),
+    ProgramServer { on: bool, target: ProgramTarget },
     SyncTime,
 }
 
@@ -54,6 +55,60 @@ pub enum OtaState {
     Failed(&'static str),
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ProgramTarget {
+    Esp32C3,
+    Esp32S3,
+    Esp32C6,
+}
+
+impl ProgramTarget {
+    pub const ALL: [Self; 3] = [Self::Esp32C3, Self::Esp32S3, Self::Esp32C6];
+
+    pub const fn index(self) -> u8 {
+        match self {
+            Self::Esp32C3 => 0,
+            Self::Esp32S3 => 1,
+            Self::Esp32C6 => 2,
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Esp32C3 => "ESP32-C3",
+            Self::Esp32S3 => "ESP32-S3",
+            Self::Esp32C6 => "ESP32-C6",
+        }
+    }
+
+    pub const fn slug(self) -> &'static str {
+        match self {
+            Self::Esp32C3 => "c3",
+            Self::Esp32S3 => "s3",
+            Self::Esp32C6 => "c6",
+        }
+    }
+
+    pub const fn chip_id(self) -> u16 {
+        match self {
+            Self::Esp32C3 => 5,
+            Self::Esp32S3 => 9,
+            Self::Esp32C6 => 13,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ProgramState {
+    Idle,
+    Listening,
+    Staging { done: u32, total: u32 },
+    Connecting,
+    Flashing { done: u32, total: u32 },
+    Done,
+    Failed(&'static str),
+}
+
 #[derive(Clone)]
 pub struct WifiState {
     pub status: WifiStatus,
@@ -64,6 +119,7 @@ pub struct WifiState {
     pub scan_seq: u32,
     pub err: &'static str,
     pub ota: OtaState,
+    pub program: ProgramState,
     pub time_synced: bool,
     pub mac: [u8; 6],
 }
@@ -79,6 +135,7 @@ impl WifiState {
             scan_seq: 0,
             err: "",
             ota: OtaState::Idle,
+            program: ProgramState::Idle,
             time_synced: false,
             mac: [0; 6],
         }

@@ -1,0 +1,10 @@
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/somni-parser/db7ebc73731df01e/out/somni_parser-db7ebc73731df01e.d: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/ast.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lexer.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/parser.rs
+
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/somni-parser/db7ebc73731df01e/out/libsomni_parser-db7ebc73731df01e.rlib: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/ast.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lexer.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/parser.rs
+
+/home/seleste/c6 os/aetheris-os/c3-programmer-test/target/release/build/somni-parser/db7ebc73731df01e/out/libsomni_parser-db7ebc73731df01e.rmeta: /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lib.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/ast.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lexer.rs /home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/parser.rs
+
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lib.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/ast.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/lexer.rs:
+/home/seleste/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/somni-parser-0.3.1/src/parser.rs:
