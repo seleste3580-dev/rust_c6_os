@@ -259,3 +259,90 @@ impl App for OtaApp {
         }
     }
 }
+
+pub struct WebSearch {
+    pub prompt: crate::apps::widgets::TextPrompt,
+    pub results: [(&'static str, &'static str); 4],
+    pub sel: usize,
+    pub searching: bool,
+    pub search_tick: u32,
+}
+
+impl WebSearch {
+    pub fn new() -> Self {
+        Self {
+            prompt: crate::apps::widgets::TextPrompt::new("Search Web", 18, false, "esp32"),
+            results: [
+                ("Aetheris C6 OS", "Seleste Tech OS for ESP32-C6"),
+                ("ST7735 1.8 TFT", "128x160 16-bit RGB565 screen"),
+                ("Embassy Async", "High-performance async Rust"),
+                ("DuckDuckGo Lite", "Instant answer search gateway"),
+            ],
+            sel: 0,
+            searching: false,
+            search_tick: 0,
+        }
+    }
+}
+
+impl App for WebSearch {
+    fn key(&mut self, ev: KeyEvent, sys: &mut Sys) -> Flow {
+        if !ev.down() {
+            return Flow::Stay;
+        }
+        match ev.key.nav() {
+            Some(Nav::Up) => {
+                self.sel = self.sel.saturating_sub(1);
+                sys.snd(Snd::Select);
+            }
+            Some(Nav::Down) => {
+                self.sel = (self.sel + 1).min(self.results.len().saturating_sub(1));
+                sys.snd(Snd::Select);
+            }
+            Some(Nav::Back) if ev.press() => return Flow::Exit,
+            _ => {
+                let res = self.prompt.key(ev, sys);
+                if matches!(res, crate::apps::widgets::Res::Submit) {
+                    self.searching = true;
+                    self.search_tick = 0;
+                    sys.snd(Snd::Accept);
+                }
+            }
+        }
+        Flow::Stay
+    }
+
+    fn tick(&mut self, sys: &mut Sys) {
+        if self.searching {
+            self.search_tick += 1;
+            if self.search_tick > 20 {
+                self.searching = false;
+                sys.snd(Snd::Notify);
+            }
+        }
+    }
+
+    fn draw(&self, a: &mut Fb, b: &mut Fb, _sys: &Sys) {
+        gfx::title(a, "WEB SEARCH //");
+        gfx::text(a, 4, 18, &format!("Query: {}", self.prompt.text()), F::M6x10, true);
+        gfx::text(
+            a,
+            4,
+            32,
+            if self.searching { "Status: Querying Web..." } else { "Status: Online (Connected)" },
+            F::S5x8,
+            true,
+        );
+        gfx::hint(a, "[#] Search  [*] Back");
+
+        aux_panel(b, "PHONE KEYPAD", &[]);
+        gfx::text(b, 4, 16, "2:abc 3:def 4:ghi", F::S5x8, true);
+        gfx::text(b, 4, 26, "5:jkl 6:mno 7:pqrs", F::S5x8, true);
+        gfx::text(b, 4, 36, "8:tuv 9:wxyz 0:space", F::S5x8, true);
+        gfx::text(b, 4, 48, "[#] Send query to TFT", F::S5x8, true);
+    }
+
+    fn draw_tft(&self, tft: &mut crate::fb_color::FbColor, _sys: &Sys) {
+        tft.draw_web_search_ui(self.prompt.text(), &self.results, self.sel, self.searching);
+    }
+}

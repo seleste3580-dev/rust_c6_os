@@ -787,3 +787,97 @@ impl App for Ninja {
         gfx::text_c(b, 64, 54, "#/5/2 jump  *:exit", F::S5x8, true);
     }
 }
+
+pub struct VideoPlayer {
+    pub mode: u8,
+    pub tick: u32,
+    pub paused: bool,
+    pub next_t: u64,
+}
+
+impl VideoPlayer {
+    pub fn new() -> Self {
+        Self { mode: 0, tick: 0, paused: false, next_t: 0 }
+    }
+}
+
+impl App for VideoPlayer {
+    fn key(&mut self, ev: KeyEvent, sys: &mut Sys) -> Flow {
+        if !ev.down() {
+            return Flow::Stay;
+        }
+        match ev.key {
+            Key::Star | Key::D if ev.press() => return Flow::Exit,
+            Key::K2 => {
+                self.mode = if self.mode == 0 { 2 } else { self.mode - 1 };
+                sys.snd(Snd::Select);
+            }
+            Key::K8 => {
+                self.mode = (self.mode + 1) % 3;
+                sys.snd(Snd::Select);
+            }
+            Key::Hash | Key::K5 => {
+                self.paused = !self.paused;
+                sys.snd(if self.paused { Snd::Click } else { Snd::Ping });
+            }
+            _ => {
+                if let Some(nav) = ev.key.nav() {
+                    match nav {
+                        Nav::Up => {
+                            self.mode = if self.mode == 0 { 2 } else { self.mode - 1 };
+                            sys.snd(Snd::Select);
+                        }
+                        Nav::Down => {
+                            self.mode = (self.mode + 1) % 3;
+                            sys.snd(Snd::Select);
+                        }
+                        Nav::Back => return Flow::Exit,
+                        _ => {}
+                    }
+                }
+            }
+        }
+        Flow::Stay
+    }
+
+    fn tick(&mut self, sys: &mut Sys) {
+        if !self.paused && sys.now >= self.next_t {
+            self.next_t = sys.now + 33; // ~30 FPS animation stream
+            self.tick = self.tick.wrapping_add(1);
+        }
+    }
+
+    fn keep_awake(&self) -> bool {
+        true
+    }
+
+    fn draw(&self, a: &mut Fb, b: &mut Fb, _sys: &Sys) {
+        gfx::title(a, "VIDEO PLAYER //");
+        let mode_name = match self.mode {
+            0 => "3D Hologram Cube",
+            1 => "Neon Synthwave EQ",
+            _ => "Quantum Vortex",
+        };
+        gfx::text(a, 4, 18, mode_name, F::M6x10, true);
+        gfx::text(
+            a,
+            4,
+            30,
+            if self.paused { "Status: Paused" } else { "Status: 30 FPS Stream" },
+            F::S5x8,
+            true,
+        );
+        gfx::hint(a, "2/8:mode  #:pause  *:exit");
+
+        aux_panel(b, "VIDEO TELEMETRY", &[]);
+        gfx::text(b, 4, 16, &format!("Frame: {}", self.tick), F::S5x8, true);
+        gfx::text(b, 4, 26, "Resolution: 128x160", F::S5x8, true);
+        gfx::text(b, 4, 36, "Color: 16-bit RGB565", F::S5x8, true);
+        gfx::text(b, 4, 48, "Bus: SPI2 26MHz (3.3V)", F::S5x8, true);
+    }
+
+    fn draw_tft(&self, tft: &mut crate::fb_color::FbColor, _sys: &Sys) {
+        tft.draw_animation_screen(self.mode, self.tick);
+    }
+}
+

@@ -7,7 +7,9 @@ extern crate alloc;
 
 pub mod apps;
 pub mod clock;
+pub mod color;
 pub mod fb;
+pub mod fb_color;
 pub mod gfx;
 #[cfg(target_os = "none")]
 pub mod hw;

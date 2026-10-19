@@ -8,3 +8,4 @@ pub mod programmer;
 pub mod shared;
 pub mod soft_i2c;
 pub mod storage;
+pub mod tft;

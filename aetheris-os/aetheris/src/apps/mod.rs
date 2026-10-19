@@ -25,6 +25,7 @@ pub trait App {
     fn key(&mut self, ev: KeyEvent, sys: &mut Sys) -> Flow;
     fn tick(&mut self, _sys: &mut Sys) {}
     fn draw(&self, a: &mut Fb, b: &mut Fb, sys: &Sys);
+    fn draw_tft(&self, _tft: &mut crate::fb_color::FbColor, _sys: &Sys) {}
     /// Apps that use `*` as a normal key return true so a long-press does not exit.
     fn owns_star(&self) -> bool {
         false
@@ -81,13 +82,15 @@ apps! {
     "System", "Memory & hardware", 23, tools::SysInfo::new();
     "Key Test", "Matrix scanner", 24, tools::KeyTest::new();
     "Torch", "Screens + LED light", 25, tools::Torch::new();
-    "OTA / Programmer", "Self update or flash ESP slave", 26, net::OtaApp::new();
-    "Focus", "Pomodoro work timer", 28, tools::Focus::new();
-    "Calendar", "Month view + dates", 29, tools::Calendar::new();
-    "Converter", "Length, temp, mass...", 30, tools::Converter::new();
-    "Playlist", "Build & play queues", 31, music::Playlist::new();
-    "Prox Alarm", "IR tripwire siren", 32, ir::ProxAlarm::new();
-    "Ninja Run", "Jump the obstacles", 33, games::Ninja::new();
+    "Web Search", "Online browser & portal", 26, net::WebSearch::new();
+    "Video Player", "Animations & media stream", 27, games::VideoPlayer::new();
+    "OTA / Programmer", "Self update or flash ESP slave", 28, net::OtaApp::new();
+    "Focus", "Pomodoro work timer", 29, tools::Focus::new();
+    "Calendar", "Month view + dates", 30, tools::Calendar::new();
+    "Converter", "Length, temp, mass...", 31, tools::Converter::new();
+    "Playlist", "Build & play queues", 32, music::Playlist::new();
+    "Prox Alarm", "IR tripwire siren", 33, ir::ProxAlarm::new();
+    "Ninja Run", "Jump the obstacles", 34, games::Ninja::new();
 }
 
 /// Scrolling list drawn on the main screen body (y = 17..63). `rows` rows of 11 px.

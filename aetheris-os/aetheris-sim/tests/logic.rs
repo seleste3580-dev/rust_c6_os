@@ -59,6 +59,16 @@ fn settings_roundtrip() {
 }
 
 #[test]
+fn slave_programmer_targets() {
+    use aetheris::sys::ProgramTarget;
+    assert_eq!(ProgramTarget::Esp32C3.chip_id(), 5);
+    assert_eq!(ProgramTarget::Esp32S3.chip_id(), 9);
+    assert_eq!(ProgramTarget::Esp32C6.chip_id(), 13);
+    assert_eq!(ProgramTarget::ALL.map(ProgramTarget::slug), ["c3", "s3", "c6"]);
+    assert_eq!(ProgramTarget::ALL.map(ProgramTarget::index), [0, 1, 2]);
+}
+
+#[test]
 fn dates() {
     let e = clock::to_epoch(2026, 10, 14, 12, 30, 15);
     let d = clock::from_epoch(e);

@@ -8,6 +8,7 @@
 extern crate alloc;
 
 use aetheris::fb::Fb;
+use aetheris::fb_color::FbColor;
 use aetheris::hw::buzzer::buzzer_task;
 use aetheris::hw::ir::ir_task;
 use aetheris::hw::keypad::Keypad;
@@ -16,6 +17,7 @@ use aetheris::hw::oled::Oled;
 use aetheris::hw::shared::*;
 use aetheris::hw::soft_i2c::SoftI2c;
 use aetheris::hw::storage::{self, FLASH, storage_task};
+use aetheris::hw::tft::St7735;
 use aetheris::input::{Key, KeyEvent, KeyScanner};
 use aetheris::os::{Os, Power};
 use aetheris::sound::Snd;
@@ -29,6 +31,8 @@ use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Level, Output, OutputConfig, Pin};
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::rng::Rng;
+use esp_hal::spi::master::{Config as SpiConfig, Spi};
+use esp_hal::spi::Mode;
 use esp_hal::time::Rate;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::uart::{Config as UartConfig, Uart};
@@ -56,6 +60,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 }
 
 static NET_RES: StaticCell<StackResources<5>> = StaticCell::new();
+static TFT_FB: StaticCell<FbColor> = StaticCell::new();
 
 #[esp_rtos::main]
 async fn main(spawner: Spawner) {
@@ -81,18 +86,29 @@ async fn main(spawner: Spawner) {
     let b_ok = oled_b.init();
     log::info!("OLED A: {}  OLED B: {}", a_ok, b_ok);
 
+    let spi = Spi::new(
+        peripherals.SPI2,
+        SpiConfig::default().with_frequency(Rate::from_mhz(26)).with_mode(Mode::_0),
+    )
+    .unwrap()
+    .with_sck(peripherals.GPIO16)
+    .with_mosi(peripherals.GPIO15);
+    let tft_dc = Output::new(peripherals.GPIO5, Level::Low, OutputConfig::default());
+    let tft_rst = Output::new(peripherals.GPIO8, Level::High, OutputConfig::default());
+    let mut tft = St7735::new(spi, tft_dc, tft_rst);
+    tft.init();
+    log::info!("TFT 1.8 ST7735 initialized (SCK: GPIO16, MOSI: GPIO15, DC: GPIO5, RST: GPIO8)");
+
     // ── input / output pins ─────────────────────────────────────────────────────────────
     let mut keypad = Keypad::new(
         [peripherals.GPIO0.degrade(), peripherals.GPIO1.degrade(), peripherals.GPIO2.degrade(), peripherals.GPIO3.degrade()],
         [peripherals.GPIO10.degrade(), peripherals.GPIO11.degrade(), peripherals.GPIO18.degrade(), peripherals.GPIO19.degrade()],
     );
     let mut led = Output::new(peripherals.GPIO22, Level::Low, OutputConfig::default());
-    let slave_boot = Output::new(peripherals.GPIO5, Level::High, OutputConfig::default());
-    let slave_reset = Output::new(peripherals.GPIO15, Level::High, OutputConfig::default());
+    let slave_boot = Output::new(peripherals.GPIO17, Level::High, OutputConfig::default());
+    let slave_reset = Output::new(peripherals.GPIO9, Level::High, OutputConfig::default());
     let slave_uart = Uart::new(peripherals.UART1, UartConfig::default().with_baudrate(115_200))
         .unwrap()
-        .with_rx(peripherals.GPIO9)
-        .with_tx(peripherals.GPIO8)
         .into_async();
 
     // ── flash + settings ────────────────────────────────────────────────────────────────
@@ -126,6 +142,7 @@ async fn main(spawner: Spawner) {
     let mut scanner = KeyScanner::new();
     let mut events: Vec<KeyEvent> = Vec::new();
     let (mut fa, mut fb) = (Fb::new(), Fb::new());
+    let tft_fb = TFT_FB.init(FbColor::new());
 
     let mut next_frame = 0u64;
     let mut next_wifi = 0u64;
@@ -234,9 +251,10 @@ async fn main(spawner: Spawner) {
             }
 
             if power != Power::Off {
-                os.draw(&mut fa, &mut fb, &sys);
+                os.draw_all(&mut fa, &mut fb, tft_fb, &sys);
                 oled_a.flush(&fa).await;
                 oled_b.flush(&fb).await;
+                tft.flush(tft_fb).await;
             }
 
             frames += 1;

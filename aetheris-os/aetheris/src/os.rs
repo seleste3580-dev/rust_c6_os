@@ -1,7 +1,9 @@
 //! The Aetheris shell: boot sequence, login, home screen, app grid, power management.
 use crate::apps::widgets::{Res, TextPrompt};
 use crate::apps::{self, App, Flow};
+use crate::color;
 use crate::fb::Fb;
+use crate::fb_color::{self, FbColor};
 use crate::gfx::{self, F};
 use crate::icons;
 use crate::input::{Key, KeyEvent, Nav};
@@ -390,6 +392,111 @@ impl Os {
         if let Some((m, _)) = &self.toast {
             a.fill_rect(0, 51, 128, 13, true);
             gfx::text_c(a, 64, 53, m, F::M6x10, false);
+        }
+    }
+
+    pub fn draw_all(&mut self, a: &mut Fb, b: &mut Fb, tft: &mut FbColor, sys: &Sys) {
+        self.draw(a, b, sys);
+        self.draw_tft(tft, sys);
+    }
+
+    pub fn draw_tft(&mut self, tft: &mut FbColor, sys: &Sys) {
+        tft.clear(color::DARK_BG);
+        let tick = (sys.now / 33) as u32;
+        match &self.screen {
+            Screen::Boot => {
+                let t = sys.now.saturating_sub(self.boot_t0);
+                tft.draw_wp_circuit(tick);
+                // Glowing Neon Splash Card
+                tft.fill_round_rect(10, 26, 108, 106, color::DARK_SURFACE, color::NEON_CYAN);
+                tft.round_rect(8, 24, 112, 110, color::NEON_MAGENTA);
+                tft.text_c(64, 38, "SELESTE", color::WHITE, None);
+                tft.text_c(64, 52, "TECHNOLOGIES", color::NEON_CYAN, None);
+                tft.hline(20, 68, 88, color::NEON_MAGENTA);
+                tft.text_c(64, 76, "AETHERIS OS", color::NEON_YELLOW, None);
+                tft.text_c(64, 90, "TRIPLE-HUD C6", color::ICE_BLUE, None);
+
+                // Progress Bar
+                let p = ((t * 88 / BOOT_TOTAL_MS) as i32).min(88);
+                tft.fill_round_rect(20, 108, 88, 8, color::BLACK, color::NEON_CYAN);
+                tft.fill_rect(22, 110, p, 4, color::NEON_GREEN);
+            }
+            Screen::Login => {
+                tft.draw_wp_synthwave(tick);
+                // Glowing Login Card
+                tft.fill_round_rect(8, 25, 112, 110, color::DARK_SURFACE, color::NEON_CYAN);
+                tft.round_rect(7, 24, 114, 112, color::NEON_MAGENTA);
+                tft.circle(64, 48, 13, color::NEON_YELLOW);
+                tft.fill_circle(64, 48, 6, color::WHITE);
+
+                tft.text_c(64, 68, "SYSTEM LOGIN", color::WHITE, None);
+
+                let active_u = self.stage == 0;
+                let active_p = self.stage == 1;
+                tft.fill_round_rect(16, 82, 96, 16, color::BLACK, if active_u { color::NEON_CYAN } else { color::DARK_BORDER });
+                let u_str = if self.user.text().is_empty() { "Username" } else { self.user.text() };
+                tft.text(20, 86, u_str, if active_u { color::WHITE } else { color::MUTED_TEXT }, None);
+
+                tft.fill_round_rect(16, 104, 96, 16, color::BLACK, if active_p { color::NEON_CYAN } else { color::DARK_BORDER });
+                let p_dots = if self.pass.text().is_empty() { "Password" } else { "********" };
+                tft.text(20, 108, p_dots, if active_p { color::WHITE } else { color::MUTED_TEXT }, None);
+            }
+            Screen::Home => {
+                match sys.settings.wp_a % 4 {
+                    0 => tft.draw_wp_synthwave(tick),
+                    1 => tft.draw_wp_matrix(tick),
+                    2 => tft.draw_wp_circuit(tick),
+                    _ => tft.draw_wp_nebula(tick),
+                }
+
+                let t = sys.local_time();
+                tft.fill_round_rect(14, 20, 100, 48, color::DARK_SURFACE, color::NEON_CYAN);
+                tft.round_rect(13, 19, 102, 50, color::NEON_MAGENTA);
+                let time_str = format!("{:02}:{:02}", t.h, t.mi);
+                tft.text_c(64, 28, &time_str, color::WHITE, None);
+                let sec_str = format!(":{:02}", t.s);
+                tft.text(88, 38, &sec_str, color::NEON_YELLOW, None);
+                let d_str = format!("{} {} {}", crate::clock::DAYS[t.wd as usize], t.d, crate::clock::MONTHS[(t.mo - 1) as usize]);
+                tft.text_c(64, 52, &d_str, color::ICE_BLUE, None);
+
+                tft.fill_round_rect(4, 116, 120, 40, color::DARK_SURFACE, color::DARK_BORDER);
+                for (i, &id) in FAVS.iter().enumerate() {
+                    let bx = 8 + (i as i32) * 28;
+                    tft.draw_app_badge(bx, 120, apps::APPS[id].icon, "", false);
+                }
+            }
+            Screen::Menu => {
+                tft.clear(color::DARK_BG);
+                tft.fill_rect(0, 0, fb_color::W, 20, color::DARK_SURFACE);
+                tft.hline(0, 20, fb_color::W, color::NEON_CYAN);
+                tft.text(4, 5, "APPLICATIONS //", color::NEON_CYAN, None);
+
+                let n = apps::APPS.len();
+                let page = self.menu_sel / 8;
+                let page_str = format!("{}/{}", page + 1, n.div_ceil(8));
+                tft.text(100, 5, &page_str, color::NEON_YELLOW, None);
+
+                for slot in 0..8 {
+                    let id = page * 8 + slot;
+                    if id >= n {
+                        break;
+                    }
+                    let gx = 4 + (slot % 4) as i32 * 31;
+                    let gy = 26 + (slot / 4) as i32 * 54;
+                    let is_sel = id == self.menu_sel;
+                    let info = &apps::APPS[id];
+                    tft.draw_app_badge(gx, gy, info.icon, &gfx::clip(info.name, 4), is_sel);
+                }
+
+                tft.fill_rect(0, 136, fb_color::W, 24, color::DARK_SURFACE);
+                tft.hline(0, 136, fb_color::W, color::NEON_MAGENTA);
+                let sel_info = &apps::APPS[self.menu_sel];
+                tft.text(4, 138, &gfx::clip(sel_info.name, 18), color::WHITE, None);
+                tft.text(4, 149, &gfx::clip(sel_info.desc, 22), color::MUTED_TEXT, None);
+            }
+            Screen::App(app) => {
+                app.draw_tft(tft, sys);
+            }
         }
     }
 

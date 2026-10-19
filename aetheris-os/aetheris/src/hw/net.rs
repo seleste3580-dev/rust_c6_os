@@ -307,10 +307,35 @@ async fn sntp(stack: Stack<'static>) -> Option<i64> {
 
 // ───────────────────────────── OTA over HTTP ─────────────────────────────
 
-const PAGE: &str = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<html><body style='font-family:monospace;background:#001;color:#4af'>\
-<h2>Aetheris OS &middot; Firmware</h2><p>Seleste Technologies</p>\
-<p>Self-update: <code>curl --data-binary @aetheris.bin http://THIS-IP/ota</code></p>\
-<p>Slave app image: <code>curl --data-binary @slave.bin http://THIS-IP/program/c3</code></p></body></html>";
+const PAGE: &str = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<!DOCTYPE html><html><head><meta charset='utf-8'><title>Aetheris OS // Portal</title>\
+<meta name='viewport' content='width=device-width,initial-scale=1'>\
+<style>\
+body{background:#0a0c14;color:#00f0ff;font-family:sans-serif;margin:0;padding:20px;text-align:center}\
+.box{max-width:540px;margin:auto;background:#121622;border:1px solid #ff0082;border-radius:12px;padding:24px;box-shadow:0 0 20px #00f0ff33}\
+h1{color:#fff;margin:0 0 4px;font-size:24px}h2{color:#ffeb00;font-size:16px;margin:0 0 20px}\
+input,button{padding:10px 14px;border-radius:6px;border:none;margin:6px 0;font-size:15px}\
+input{width:80%;background:#05070c;color:#fff;border:1px solid #00f0ff}\
+button{background:#00f0ff;color:#000;font-weight:bold;cursor:pointer;transition:.2s}\
+button:hover{background:#ff0082;color:#fff}\
+.card{background:#05070c;border:1px solid #232a3c;border-radius:8px;padding:12px;margin:12px 0;text-align:left}\
+code{background:#000;color:#39ff14;padding:3px 6px;border-radius:4px;font-family:monospace}\
+</style></head><body><div class='box'>\
+<h1>&#9889; AETHERIS OS // PORTAL</h1><h2>Seleste Technologies &middot; ESP32-C6</h2>\
+<div class='card'><h3 style='margin:0 0 8px;color:#ffeb00'>&#127760; Online Web Search</h3>\
+<form action='https://html.duckduckgo.com/html/' method='get' target='_blank'>\
+<input type='text' name='q' placeholder='Search web online...'><br>\
+<button type='submit'>Search Web Online</button>\
+</form></div>\
+<div class='card'><h3 style='margin:0 0 8px;color:#00f0ff'>&#127916; 1.8\" Color TFT Display</h3>\
+<p style='color:#a0e1ff;margin:0 0 8px;font-size:13px'>Resolution: 128x160 &middot; 16-bit RGB565 &middot; ST7735 SPI</p>\
+<p style='color:#fff;margin:0;font-size:14px'>&#10004; Neon Synthwave &middot; Matrix &middot; Hologram 3D Cube &middot; Quantum Stream</p>\
+</div>\
+<div class='card'><h3 style='margin:0 0 8px;color:#39ff14'>&#128640; Wireless OTA Update</h3>\
+<p style='font-size:13px;color:#ccc;margin:0 0 8px'>Upload new firmware image to active OTA slot:</p>\
+<code>curl --data-binary @aetheris13.bin http://THIS-IP/ota</code>\
+</div>\
+<p style='font-size:12px;color:#78829b;margin-top:16px'>Triple-HUD System: 1.8\" Color TFT + Dual SSD1306 OLEDs</p>\
+</div></body></html>";
 
 async fn respond(sock: &mut TcpSocket<'_>, code: &str, body: &str) {
     let _ = sock.write_all(b"HTTP/1.1 ").await;
