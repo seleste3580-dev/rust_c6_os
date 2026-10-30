@@ -18,6 +18,10 @@
 
 ---
 
+[![Architecture diagram of seleste3580-dev/rust_c6_os](https://gitdiagram.com/seleste3580-dev/rust_c6_os/diagram.png)](https://gitdiagram.com/seleste3580-dev/rust_c6_os?utm_source=readme&utm_medium=picture)
+
+---
+
 ## 🧱 Tech stack
 
 ```text
