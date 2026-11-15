@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "aetheris"
 version = "1.0.0"
