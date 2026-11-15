@@ -32,10 +32,6 @@ crc = { version = "3.2.1", default-features = false }
 
 # Serialization for Pweb2 Gateway Integration
 serde = { version = "1.0.219", default-features = false, features = ["alloc", "derive"] }
-serde_json_core = "0.6.0"
-
-# Embedded MQTT Client
-rust-mqtt = { version = "0.3.0", default-features = false }
 
 [profile.release]
 opt-level = "s"
