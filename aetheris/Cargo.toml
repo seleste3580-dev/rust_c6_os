@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 # Espressif Bare-Metal HAL for ESP32-C6 (RISC-V 160MHz)
-esp-hal = { version = "1.1.2", features = ["esp32c6", "log-info"] }
+esp-hal = { version = "1.1.2", features = ["esp32c6", "unstable"] }
 esp-radio = { version = "0.18.0", features = ["esp32c6", "wifi"] }
 esp-storage = { version = "0.9.0", features = ["esp32c6"] }
 
