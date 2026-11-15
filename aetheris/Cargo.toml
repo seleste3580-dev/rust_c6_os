@@ -1,0 +1,48 @@
+[package]
+name = "aetheris"
+version = "1.0.0"
+edition = "2024"
+authors = ["Waithaka Njoroge <waithaka.njoroge3580@gmail.com>", "Seleste Technologies Ltd"]
+description = "Aetheris OS: Real-Time Operating Environment for ESP32-C6 with Dual-OLED, Phone Keypad, Pweb2 MQTT & OTA"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+# Espressif Bare-Metal HAL for ESP32-C6 (RISC-V 160MHz)
+esp-hal = { version = "1.2.0", features = ["esp32c6", "log-info"] }
+esp-radio = { version = "0.15.0", features = ["esp32c6", "wifi"] }
+esp-storage = { version = "0.4.0", features = ["esp32c6"] }
+
+# Async Scheduling
+embassy-executor = { version = "0.7.0", features = ["arch-riscv32", "task-arena-size-24576"] }
+embassy-time = { version = "0.4.0", features = ["generic-queue-64"] }
+embassy-sync = { version = "0.6.0" }
+embassy-net = { version = "0.6.0", features = ["tcp", "udp", "dhcpv4", "dns", "medium-ethernet"] }
+
+# Graphics & Primitives
+embedded-graphics = "0.8.1"
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"
+
+# Hashing & Integrity Checksums
+sha2 = { version = "0.10.8", default-features = false }
+crc = { version = "3.2.1", default-features = false }
+
+# Serialization for Pweb2 Gateway Integration
+serde = { version = "1.0.219", default-features = false, features = ["alloc", "derive"] }
+serde_json_core = "0.6.0"
+
+# Embedded MQTT Client
+rust-mqtt = { version = "0.3.0", default-features = false }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = false
+incremental = false
+
+[profile.dev]
+opt-level = 1
+debug = true
