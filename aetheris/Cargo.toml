@@ -12,8 +12,8 @@ publish = false
 [dependencies]
 # Espressif Bare-Metal HAL for ESP32-C6 (RISC-V 160MHz)
 esp-hal = { version = "1.2.0", features = ["esp32c6", "log-info"] }
-esp-radio = { version = "0.15.0", features = ["esp32c6", "wifi"] }
-esp-storage = { version = "0.4.0", features = ["esp32c6"] }
+esp-radio = { version = "0.18.0", features = ["esp32c6", "wifi"] }
+esp-storage = { version = "0.10.0", features = ["esp32c6"] }
 
 # Async Scheduling
 embassy-executor = { version = "0.7.0", features = ["arch-riscv32", "task-arena-size-24576"] }
