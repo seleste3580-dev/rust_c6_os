@@ -3,25 +3,31 @@
 
 extern crate alloc;
 
+use core::cell::UnsafeCell;
 use aetheris::net::{MqttClientService, OtaClient, PwebDbClient};
 
-// Minimal embedded bump allocator for no_std heap operations
-struct SimpleAllocator;
+// Interior mutability allocator for Rust 2024 compliance (no static mut references)
+struct SimpleAllocator {
+    heap: UnsafeCell<[u8; 64 * 1024]>,
+    offset: UnsafeCell<usize>,
+}
+
+unsafe impl Sync for SimpleAllocator {}
 
 unsafe impl core::alloc::GlobalAlloc for SimpleAllocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         unsafe {
-            static mut HEAP: [u8; 64 * 1024] = [0; 64 * 1024];
-            static mut OFFSET: usize = 0;
+            let offset_ptr = self.offset.get();
+            let current = *offset_ptr;
             let align = layout.align();
             let size = layout.size();
-            let current = OFFSET;
             let start = (current + align - 1) & !(align - 1);
             if start + size > 64 * 1024 {
                 core::ptr::null_mut()
             } else {
-                OFFSET = start + size;
-                HEAP.as_mut_ptr().add(start)
+                *offset_ptr = start + size;
+                let heap_ptr = self.heap.get() as *mut u8;
+                heap_ptr.add(start)
             }
         }
     }
@@ -30,7 +36,10 @@ unsafe impl core::alloc::GlobalAlloc for SimpleAllocator {
 }
 
 #[global_allocator]
-static ALLOCATOR: SimpleAllocator = SimpleAllocator;
+static ALLOCATOR: SimpleAllocator = SimpleAllocator {
+    heap: UnsafeCell::new([0; 64 * 1024]),
+    offset: UnsafeCell::new(0),
+};
 
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
